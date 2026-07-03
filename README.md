@@ -121,6 +121,9 @@ then `make restart`.
 - **Implicit hosting ON + viewer `can_host:false`.** Admin auto-controls on click;
   viewers are rejected by neko before they can grab control.
 
+The hardest bug — the view **freezing on click** — and how it was tracked down is
+written up in [docs/POSTMORTEM.md](docs/POSTMORTEM.md).
+
 ---
 
 ## Security
