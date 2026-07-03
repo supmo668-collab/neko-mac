@@ -1,0 +1,38 @@
+services:
+  neko:
+    # V3 image from GHCR ships a NATIVE arm64 build (no emulation on Apple Silicon).
+    # The old Docker Hub `m1k1o/neko:chromium` is amd64-only and freezes on interaction
+    # because the emulated VP8 encoder stalls on screen redraw. Override NEKO_IMAGE in
+    # .env to switch browser (chromium/firefox/brave/…): ghcr.io/m1k1o/neko/<app>:latest
+    image: "${NEKO_IMAGE:-ghcr.io/m1k1o/neko/chromium:latest}"
+    restart: unless-stopped
+    shm_size: "${SHM_SIZE:-2gb}"
+    ports:
+      - "${HTTP_PORT:-8080}:8080"                    # Neko web UI / WebSocket
+      - "${MUX_PORT:-52000}:${MUX_PORT:-52000}/tcp"  # WebRTC media (TCP fallback)
+      - "${MUX_PORT:-52000}:${MUX_PORT:-52000}/udp"  # WebRTC media (UDP, preferred)
+    environment:
+      # ── Desktop ─────────────────────────────────────────────────────────────
+      NEKO_DESKTOP_SCREEN: "${NEKO_SCREEN:-1920x1080@30}"
+
+      # ── WebRTC ──────────────────────────────────────────────────────────────
+      # Single-port UDP+TCP mux is reliable behind OrbStack/macOS userspace
+      # networking. TCP is the fallback when UDP is blocked or flaky.
+      NEKO_WEBRTC_UDPMUX: "${MUX_PORT:-52000}"
+      NEKO_WEBRTC_TCPMUX: "${MUX_PORT:-52000}"
+      NEKO_WEBRTC_ICELITE: "true"
+      # Advertise the Tailscale IPv4 so remote peers get a reachable ICE candidate.
+      NEKO_WEBRTC_NAT1TO1: "${TAILSCALE_IP}"
+
+      # ── Members / auth ──────────────────────────────────────────────────────
+      # Implicit hosting ON → the admin auto-gains control on interaction.
+      # The viewer has can_host:false → neko's controlRequest rejects it, so viewers
+      # can NEVER take control (watch-only), even with implicit hosting on.
+      # IMPORTANT: only ONE person logs in as the admin user. Everyone else uses the
+      # viewer user; two admin logins fight over the single host slot.
+      NEKO_SESSION_IMPLICIT_HOSTING: "true"
+      NEKO_MEMBER_PROVIDER: "object"
+      NEKO_MEMBER_OBJECT_USERS: >-
+        [{"username":"${ADMIN_USER:-collab}","password":"${ADMIN_PASSWORD:-admin}","profile":{"is_admin":true,"can_login":true,"can_connect":true,"can_watch":true,"can_host":true,"can_share_media":true,"can_access_clipboard":true,"sends_inactive_cursor":true,"can_see_inactive_cursors":true}},{"username":"${VIEWER_USER:-viewer}","password":"${VIEWER_PASSWORD:-viewer}","profile":{"is_admin":false,"can_login":true,"can_connect":true,"can_watch":true,"can_host":false,"can_share_media":false,"can_access_clipboard":false,"sends_inactive_cursor":false,"can_see_inactive_cursors":false}}]
+    volumes:
+      - /dev/shm:/dev/shm
