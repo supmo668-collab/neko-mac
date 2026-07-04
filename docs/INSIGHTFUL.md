@@ -68,6 +68,26 @@ scripts/insightful-test-desktop.sh init
 scripts/insightful-test-desktop.sh up
 ```
 
+Install the basic terminal tools and installer helpers inside the desktop:
+
+```bash
+scripts/bootstrap-insightful-vm-tools.sh
+```
+
+This installs common work-machine tooling (`wget`, `curl`, `gpg`, `jq`, `gdebi`,
+`htop`, `lsof`, `iproute2`, `ping`, `dig`, `traceroute`, `xdg-utils`, etc.) and
+creates:
+
+| Inside desktop | Purpose |
+| --- | --- |
+| `/config/Shared/workvm-info.sh` | Print OS, hostname, architecture, browser, installer path |
+| `/config/Shared/install-insightful.sh` | Install the first `.deb`, `.AppImage`, or `.sh` from `/config/Downloads/Insightful` |
+| Desktop shortcut: `Install Insightful` | Opens a terminal and runs the installer helper |
+
+Chrome note: Google Chrome for Linux is generally `amd64` only. On this Apple
+Silicon/arm64 desktop, use the preinstalled `chromium` browser unless your test
+requires an `amd64` guest/VM.
+
 Open:
 
 ```text
