@@ -133,9 +133,26 @@ case "$installer" in
     apt-get install -y "./$installer"
     ;;
   *.AppImage)
-    echo "Launching AppImage: $installer"
+    echo "Preparing AppImage (FUSE-free extract-and-run): $installer"
     chmod +x "$installer"
-    "./$installer"
+    appdir="${installer%.AppImage}.extracted"
+    rm -rf "$appdir" squashfs-root
+    "./$installer" --appimage-extract >/dev/null
+    mv squashfs-root "$appdir"
+    bin_name="$(basename "$appdir" .extracted)"
+    echo "Extracted to: $INSTALLER_DIR/$appdir"
+    echo "Launching with software rendering and --no-sandbox..."
+    (
+      cd "$appdir"
+      export APPDIR="$PWD"
+      export DISPLAY="${DISPLAY:-:1}"
+      export LIBGL_ALWAYS_SOFTWARE=1
+      if command -v dbus-run-session >/dev/null 2>&1; then
+        exec dbus-run-session -- "./$bin_name" --no-sandbox
+      else
+        exec "./$bin_name" --no-sandbox
+      fi
+    )
     ;;
   *.sh)
     echo "Running shell installer: $installer"
