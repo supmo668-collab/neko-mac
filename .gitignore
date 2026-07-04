@@ -1,5 +1,7 @@
 # Secrets & local config — never commit
 .env
+.env.insightful-test
+insightful-test/
 
 # macOS
 .DS_Store

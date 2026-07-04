@@ -55,6 +55,41 @@ Use a real VM if you need Insightful to detect a separate machine for software
 safety testing. A Docker container is not enough because Insightful tracks a native
 OS session and device identity.
 
+## Optional Docker desktop for installer/browser testing
+
+If you only need a lightweight browser desktop to exercise the Insightful installer
+UI, downloads, login flow, or web dashboard, use the separate Docker config:
+
+```bash
+scripts/insightful-test-desktop.sh init
+# Put the admin-provided installer in:
+#   ./insightful-test/installers
+# Edit .env.insightful-test and set INSIGHTFUL_UI_PASSWORD
+scripts/insightful-test-desktop.sh up
+```
+
+Open:
+
+```text
+http://localhost:3010
+```
+
+Installer paths:
+
+| Location | Path |
+| --- | --- |
+| Host Mac | `./insightful-test/installers` |
+| Inside desktop | `/config/Downloads/Insightful` |
+| Shared artifacts | `./insightful-test/shared` ↔ `/config/Shared` |
+
+This optional desktop is defined in `docker-compose.insightful-test.yml` and uses
+`.env.insightful-test`. It does **not** touch the main neko `Makefile` or running
+neko stack.
+
+Important: this is still a containerized Linux desktop, not a full hardware VM. It
+may be useful for install-flow and browser testing, but if Insightful must be
+detected as a separate managed machine, use the UTM VM profile below.
+
 ### Recommended Mac setup
 
 Use **UTM** with Apple Virtualization for the cleanest Mac-hosted test VM.

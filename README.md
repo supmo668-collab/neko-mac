@@ -126,7 +126,11 @@ written up in [docs/POSTMORTEM.md](docs/POSTMORTEM.md).
 
 For installing Insightful safely on the host or on a separate test VM, see
 [docs/INSIGHTFUL.md](docs/INSIGHTFUL.md). A minimal UTM VM profile template lives at
-[vm/insightful-test.env.example](vm/insightful-test.env.example).
+[vm/insightful-test.env.example](vm/insightful-test.env.example). There is also an
+optional, isolated Docker desktop for installer/browser testing in
+[docker-compose.insightful-test.yml](docker-compose.insightful-test.yml); it is run via
+[scripts/insightful-test-desktop.sh](scripts/insightful-test-desktop.sh) and does not
+change the main neko `Makefile` flow.
 
 ---
 

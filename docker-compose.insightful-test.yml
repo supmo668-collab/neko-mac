@@ -1,0 +1,41 @@
+# Optional Insightful test desktop
+#
+# This file is intentionally separate from docker-compose.yml and is NOT used by
+# the neko Makefile targets. It gives you a minimal browser desktop for install UI
+# and safety testing without changing the working neko stack.
+#
+# Start:
+#   docker compose -f docker-compose.insightful-test.yml --env-file .env.insightful-test up -d
+#
+# Stop:
+#   docker compose -f docker-compose.insightful-test.yml --env-file .env.insightful-test down
+#
+# Important: this is a Linux desktop container, not a hardware VM. Use UTM/Ubuntu
+# if Insightful must be validated as a fully managed endpoint.
+
+services:
+  insightful-test-desktop:
+    image: "${INSIGHTFUL_DESKTOP_IMAGE:-lscr.io/linuxserver/webtop:ubuntu-mate}"
+    container_name: "${INSIGHTFUL_CONTAINER_NAME:-insightful-test-desktop}"
+    restart: unless-stopped
+    shm_size: "${INSIGHTFUL_SHM_SIZE:-2gb}"
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      PUID: "${PUID:-1000}"
+      PGID: "${PGID:-1000}"
+      TZ: "${TZ:-Etc/UTC}"
+      TITLE: "${INSIGHTFUL_DESKTOP_TITLE:-Insightful Test Desktop}"
+      CUSTOM_USER: "${INSIGHTFUL_UI_USER:-tester}"
+      PASSWORD: "${INSIGHTFUL_UI_PASSWORD:-change-me}"
+    ports:
+      - "${INSIGHTFUL_HTTP_PORT:-3010}:3000"   # browser desktop UI (HTTP)
+      - "${INSIGHTFUL_HTTPS_PORT:-3011}:3001" # browser desktop UI (HTTPS)
+    volumes:
+      # Persistent desktop home/config.
+      - "${INSIGHTFUL_CONFIG_DIR:-./insightful-test/config}:/config"
+      # Put the admin-provided Insightful installer here on the host.
+      # It appears in the desktop at: /config/Downloads/Insightful
+      - "${INSIGHTFUL_INSTALLER_DIR:-./insightful-test/installers}:/config/Downloads/Insightful"
+      # Optional shared folder for logs, screenshots, and test artifacts.
+      - "${INSIGHTFUL_SHARED_DIR:-./insightful-test/shared}:/config/Shared"
