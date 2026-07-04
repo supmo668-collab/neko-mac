@@ -84,6 +84,46 @@ open: ## Open the local UI in your browser
 clean: ## Stop the stack and remove volumes/networks
 	@$(COMPOSE) down -v --remove-orphans
 
+## ─── Insightful work VM (Lima, full amd64) ──────────────────────────────────
+
+VM := scripts/insightful-vm.sh
+
+.PHONY: vm-create
+vm-create: ## Build & start the Insightful work VM (Chrome + Workpuls desktop)
+	@$(VM) create
+
+.PHONY: vm-up
+vm-up: ## Start the existing work VM
+	@$(VM) start
+
+.PHONY: vm-down
+vm-down: ## Stop the work VM
+	@$(VM) stop
+
+.PHONY: vm-url
+vm-url: ## Print the work VM desktop URLs (local + Tailscale)
+	@$(VM) url
+
+.PHONY: vm-shell
+vm-shell: ## Open a shell inside the work VM
+	@$(VM) shell
+
+.PHONY: vm-tailscale
+vm-tailscale: ## Join the work VM to your Tailnet (interactive auth)
+	@$(VM) tailscale
+
+.PHONY: vm-install
+vm-install: ## Launch the Workpuls installer inside the work VM
+	@$(VM) install
+
+.PHONY: vm-services
+vm-services: ## Enable & start the VM desktop services (VNC + noVNC)
+	@$(VM) services
+
+.PHONY: vm-delete
+vm-delete: ## Delete the work VM (destructive)
+	@$(VM) delete
+
 ## ─── Internal ────────────────────────────────────────────────────────────────
 
 .PHONY: check-env

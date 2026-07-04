@@ -71,12 +71,37 @@ provision:
         curl -fsSL https://tailscale.com/install.sh | sh
       fi
 
-  # 3) Configure a VNC + noVNC desktop for the default user.
+  # 2b) Install native Google Chrome (amd64 .deb, non-snap). Snap Chromium cannot
+  #     attach to the VNC display; Chrome works cleanly and is what we standardize on.
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+      export DEBIAN_FRONTEND=noninteractive
+      if ! command -v google-chrome-stable >/dev/null 2>&1; then
+        install -d -m 0755 /etc/apt/keyrings
+        wget -qO- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-linux.gpg
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-linux.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+        apt-get update
+        apt-get install -y google-chrome-stable
+      fi
+
+  # 2c) Allow Chrome/Electron sandbox: Ubuntu 24.04 restricts unprivileged user
+  #     namespaces via AppArmor, which otherwise forces --no-sandbox. Relaxing this
+  #     one sysctl lets Chrome run with its real sandbox.
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+      echo "kernel.apparmor_restrict_unprivileged_userns=0" > /etc/sysctl.d/60-apparmor-userns.conf
+      sysctl --system >/dev/null 2>&1 || true
+
+  # 3) Configure a single-desktop VNC session (Openbox) for the default user.
   - mode: user
     script: |
       #!/bin/bash
       set -eux
-      mkdir -p "$HOME/.vnc"
+      mkdir -p "$HOME/.vnc" "$HOME/.config/openbox" "$HOME/installers"
       cat > "$HOME/.vnc/xstartup" <<'XSTARTUP'
       #!/bin/sh
       unset SESSION_MANAGER
@@ -89,6 +114,36 @@ provision:
       exec openbox-session
       XSTARTUP
       chmod +x "$HOME/.vnc/xstartup"
+      # Collapse to a SINGLE workspace (no 4-desktop confusion).
+      cp /etc/xdg/openbox/rc.xml "$HOME/.config/openbox/rc.xml"
+      sed -i '0,/<number>[0-9]*<\/number>/s//<number>1<\/number>/' "$HOME/.config/openbox/rc.xml"
+      # Right-click work menu.
+      cat > "$HOME/.config/openbox/menu.xml" <<'MENU'
+      <?xml version="1.0" encoding="UTF-8"?>
+      <openbox_menu xmlns="http://openbox.org/3.4/menu">
+        <menu id="root-menu" label="Work">
+          <item label="Google Chrome">
+            <action name="Execute"><command>google-chrome-stable</command></action>
+          </item>
+          <item label="Terminal">
+            <action name="Execute"><command>xterm</command></action>
+          </item>
+          <item label="Start Workpuls">
+            <action name="Execute"><command>sh -c "cd $HOME/installers &amp;&amp; ./Workpuls.AppImage --no-sandbox"</command></action>
+          </item>
+          <separator/>
+          <item label="Reconfigure"><action name="Reconfigure"/></item>
+        </menu>
+      </openbox_menu>
+      MENU
+      # All-in-one autostart: panel + Chrome + Workpuls agent.
+      cat > "$HOME/.config/openbox/autostart" <<'AUTO'
+      #!/bin/sh
+      tint2 &
+      (sleep 2; google-chrome-stable --start-maximized --no-first-run) &
+      (cd "$HOME/installers" && [ -f Workpuls.AppImage ] && ./Workpuls.AppImage --no-sandbox > "$HOME/workpuls.log" 2>&1 &) &
+      AUTO
+      chmod +x "$HOME/.config/openbox/autostart"
 
   # 4) Systemd user services: VNC (5901) + noVNC web (6080).
   - mode: user
