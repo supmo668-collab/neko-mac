@@ -71,12 +71,18 @@ scripts/insightful-test-desktop.sh up
 Open:
 
 ```text
-http://<TAILSCALE_IP>:3010
+https://<TAILSCALE_IP>:3011
 ```
 
-The optional desktop binds its UI ports to `INSIGHTFUL_BIND_IP`, which `init`
-sets to your Tailscale IPv4. That makes it reachable from anywhere in the world
-for devices in your Tailnet, while avoiding a broad `0.0.0.0` LAN bind.
+The optional desktop binds HTTPS to `INSIGHTFUL_HTTPS_BIND_IP`, which `init` sets
+to your Tailscale IPv4. That makes it reachable from anywhere in the world for
+devices in your Tailnet, while avoiding a broad `0.0.0.0` LAN bind. HTTP remains
+bound to `127.0.0.1` for local debugging only; remote HTTP will show a secure
+connection error or black screen.
+
+The HTTPS certificate is self-signed. In Chrome, open the HTTPS URL, choose
+**Advanced**, then **Proceed**. After accepting the certificate, enter the web
+desktop credentials.
 
 Installer paths:
 

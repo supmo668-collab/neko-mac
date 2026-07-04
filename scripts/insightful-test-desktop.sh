@@ -46,12 +46,17 @@ case "$cmd" in
     fi
     ts_ip="$(tailscale ip -4 2>/dev/null | head -1 || true)"
     if [ -n "$ts_ip" ]; then
-      if grep -q '^INSIGHTFUL_BIND_IP=' "$ENV_FILE"; then
-        sed -i '' "s|^INSIGHTFUL_BIND_IP=.*|INSIGHTFUL_BIND_IP=$ts_ip|" "$ENV_FILE"
+      if grep -q '^INSIGHTFUL_HTTPS_BIND_IP=' "$ENV_FILE"; then
+        sed -i '' "s|^INSIGHTFUL_HTTPS_BIND_IP=.*|INSIGHTFUL_HTTPS_BIND_IP=$ts_ip|" "$ENV_FILE"
       else
-        echo "INSIGHTFUL_BIND_IP=$ts_ip" >> "$ENV_FILE"
+        echo "INSIGHTFUL_HTTPS_BIND_IP=$ts_ip" >> "$ENV_FILE"
       fi
-      echo "Set INSIGHTFUL_BIND_IP=$ts_ip"
+      if grep -q '^INSIGHTFUL_HTTP_BIND_IP=' "$ENV_FILE"; then
+        sed -i '' "s|^INSIGHTFUL_HTTP_BIND_IP=.*|INSIGHTFUL_HTTP_BIND_IP=127.0.0.1|" "$ENV_FILE"
+      else
+        echo "INSIGHTFUL_HTTP_BIND_IP=127.0.0.1" >> "$ENV_FILE"
+      fi
+      echo "Set INSIGHTFUL_HTTPS_BIND_IP=$ts_ip and INSIGHTFUL_HTTP_BIND_IP=127.0.0.1"
     else
       echo "Warning: Tailscale IP not detected; INSIGHTFUL_BIND_IP left unchanged." >&2
     fi
@@ -93,8 +98,8 @@ EOF
     # shellcheck disable=SC1090
     source "$ENV_FILE"
     echo "Insightful test desktop:"
-    echo "  Tailnet HTTP : http://${INSIGHTFUL_BIND_IP:-127.0.0.1}:${INSIGHTFUL_HTTP_PORT:-3010}"
-    echo "  Tailnet HTTPS: https://${INSIGHTFUL_BIND_IP:-127.0.0.1}:${INSIGHTFUL_HTTPS_PORT:-3011}"
+    echo "  Remote Tailnet: https://${INSIGHTFUL_HTTPS_BIND_IP:-127.0.0.1}:${INSIGHTFUL_HTTPS_PORT:-3011}"
+    echo "  Local debug   : http://${INSIGHTFUL_HTTP_BIND_IP:-127.0.0.1}:${INSIGHTFUL_HTTP_PORT:-3010}"
     echo "  User : ${INSIGHTFUL_UI_USER:-tester}"
     echo "  Pass : see .env.insightful-test (INSIGHTFUL_UI_PASSWORD)"
     echo ""

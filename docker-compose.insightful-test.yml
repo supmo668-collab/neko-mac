@@ -30,10 +30,11 @@ services:
       CUSTOM_USER: "${INSIGHTFUL_UI_USER:-tester}"
       PASSWORD: "${INSIGHTFUL_UI_PASSWORD:-change-me}"
     ports:
-      # Bind to the Tailscale IP only, so the desktop is reachable internationally
-      # through your Tailnet but is not exposed on every LAN interface.
-      - "${INSIGHTFUL_BIND_IP:-127.0.0.1}:${INSIGHTFUL_HTTP_PORT:-3010}:3000"   # browser desktop UI (HTTP)
-      - "${INSIGHTFUL_BIND_IP:-127.0.0.1}:${INSIGHTFUL_HTTPS_PORT:-3011}:3001" # browser desktop UI (HTTPS)
+      # HTTP is local/debug only. The webtop app requires HTTPS for remote access.
+      - "${INSIGHTFUL_HTTP_BIND_IP:-127.0.0.1}:${INSIGHTFUL_HTTP_PORT:-3010}:3000"
+      # HTTPS binds to Tailscale, so it is reachable internationally through your Tailnet
+      # without exposing the desktop on every LAN interface.
+      - "${INSIGHTFUL_HTTPS_BIND_IP:-127.0.0.1}:${INSIGHTFUL_HTTPS_PORT:-3011}:3001"
     volumes:
       # Persistent desktop home/config.
       - "${INSIGHTFUL_CONFIG_DIR:-./insightful-test/config}:/config"
