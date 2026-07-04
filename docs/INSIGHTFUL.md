@@ -111,6 +111,9 @@ requires an `amd64` guest/VM.
    ./insightful-test/installers
    ```
 
+   This folder now contains `PUT_INSIGHTFUL_INSTALLER_HERE.txt` as a marker. It is
+   the same folder that appears inside the desktop as `/config/Downloads/Insightful`.
+
 7. In the VM desktop, install Insightful with either:
 
    ```bash
@@ -118,6 +121,25 @@ requires an `amd64` guest/VM.
    ```
 
    or double-click **Install Insightful** on the desktop.
+
+### Common messages
+
+`Failed to create stream fd: No such file or directory` is host-side Docker/OrbStack
+noise emitted by `docker exec`, not a VM failure. The bootstrap script filters it so
+normal setup output stays readable.
+
+`No Insightful installer found in /config/Downloads/Insightful` means the installer
+folder is still empty. Put the org-admin-provided `.deb`, `.AppImage`, or `.sh` in:
+
+```text
+/Users/hiroshi/vm_setup/insightful-test/installers
+```
+
+Then run inside the VM:
+
+```bash
+install-insightful
+```
 
 Open:
 

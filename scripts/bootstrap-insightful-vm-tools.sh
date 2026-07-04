@@ -17,15 +17,19 @@ fi
 cd "$ROOT_DIR"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
 
+desktop_exec() {
+  docker exec "$CONTAINER" "$@" 2> >(grep -v 'Failed to create stream fd' >&2)
+}
+
 echo "Waiting for $CONTAINER..."
 for _ in {1..60}; do
-  if docker exec "$CONTAINER" sh -lc 'test -f /etc/os-release' >/dev/null 2>&1; then
+  if desktop_exec sh -lc 'test -f /etc/os-release' >/dev/null 2>&1; then
     break
   fi
   sleep 2
 done
 
-docker exec "$CONTAINER" bash -lc '
+desktop_exec bash -lc '
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
@@ -71,6 +75,28 @@ if [ "$arch" = "amd64" ] && ! command -v google-chrome >/dev/null 2>&1; then
 fi
 
 mkdir -p /config/Shared /config/Downloads/Insightful /config/Desktop
+cat > /config/Downloads/Insightful/PUT_INSIGHTFUL_INSTALLER_HERE.txt <<"INNER"
+Put the org-admin-provided Insightful installer in this folder.
+
+Host Mac path:
+  ./insightful-test/installers
+
+Inside this desktop:
+  /config/Downloads/Insightful
+
+Supported installer types:
+  .deb
+  .AppImage
+  .sh
+
+After placing the installer here, run one of these inside the desktop:
+  install-insightful
+  /config/Shared/install-insightful.sh
+
+Or double-click the desktop icon:
+  Install Insightful
+INNER
+
 cat > /config/Shared/install-insightful.sh <<"INNER"
 #!/usr/bin/env bash
 set -euo pipefail
@@ -86,10 +112,17 @@ fi
 if [ -z "$installer" ]; then
   cat >&2 <<MSG
 No Insightful installer found in $INSTALLER_DIR.
-Place the org-admin-provided installer there from the host path:
-  ./insightful-test/installers
+Place the org-admin-provided installer in the host path:
+  /Users/hiroshi/vm_setup/insightful-test/installers
+
+It will appear inside this desktop at:
+  $INSTALLER_DIR
+
 Supported: .deb, .AppImage, .sh
 MSG
+  if command -v caja >/dev/null 2>&1; then
+    caja "$INSTALLER_DIR" >/dev/null 2>&1 &
+  fi
   exit 1
 fi
 

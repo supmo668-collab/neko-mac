@@ -78,6 +78,23 @@ EOF
   up)
     need_env
     compose up -d
+    cat > "$ROOT_DIR/insightful-test/installers/PUT_INSIGHTFUL_INSTALLER_HERE.txt" <<EOF
+Put the org-admin-provided Insightful installer in this folder.
+
+Inside the desktop it appears at:
+  /config/Downloads/Insightful
+
+Supported installer types:
+  .deb
+  .AppImage
+  .sh
+
+After placing the installer here, run inside the desktop:
+  install-insightful
+
+or double-click:
+  Install Insightful
+EOF
     "$0" url
     ;;
   down)
