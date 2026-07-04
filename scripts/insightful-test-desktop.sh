@@ -44,6 +44,17 @@ case "$cmd" in
     else
       echo ".env.insightful-test already exists"
     fi
+    ts_ip="$(tailscale ip -4 2>/dev/null | head -1 || true)"
+    if [ -n "$ts_ip" ]; then
+      if grep -q '^INSIGHTFUL_BIND_IP=' "$ENV_FILE"; then
+        sed -i '' "s|^INSIGHTFUL_BIND_IP=.*|INSIGHTFUL_BIND_IP=$ts_ip|" "$ENV_FILE"
+      else
+        echo "INSIGHTFUL_BIND_IP=$ts_ip" >> "$ENV_FILE"
+      fi
+      echo "Set INSIGHTFUL_BIND_IP=$ts_ip"
+    else
+      echo "Warning: Tailscale IP not detected; INSIGHTFUL_BIND_IP left unchanged." >&2
+    fi
     mkdir -p "$ROOT_DIR/insightful-test/installers" "$ROOT_DIR/insightful-test/shared" "$ROOT_DIR/insightful-test/config"
     cat <<EOF
 
@@ -82,8 +93,8 @@ EOF
     # shellcheck disable=SC1090
     source "$ENV_FILE"
     echo "Insightful test desktop:"
-    echo "  HTTP : http://localhost:${INSIGHTFUL_HTTP_PORT:-3010}"
-    echo "  HTTPS: https://localhost:${INSIGHTFUL_HTTPS_PORT:-3011}"
+    echo "  Tailnet HTTP : http://${INSIGHTFUL_BIND_IP:-127.0.0.1}:${INSIGHTFUL_HTTP_PORT:-3010}"
+    echo "  Tailnet HTTPS: https://${INSIGHTFUL_BIND_IP:-127.0.0.1}:${INSIGHTFUL_HTTPS_PORT:-3011}"
     echo "  User : ${INSIGHTFUL_UI_USER:-tester}"
     echo "  Pass : see .env.insightful-test (INSIGHTFUL_UI_PASSWORD)"
     echo ""

@@ -71,8 +71,12 @@ scripts/insightful-test-desktop.sh up
 Open:
 
 ```text
-http://localhost:3010
+http://<TAILSCALE_IP>:3010
 ```
+
+The optional desktop binds its UI ports to `INSIGHTFUL_BIND_IP`, which `init`
+sets to your Tailscale IPv4. That makes it reachable from anywhere in the world
+for devices in your Tailnet, while avoiding a broad `0.0.0.0` LAN bind.
 
 Installer paths:
 
@@ -85,6 +89,15 @@ Installer paths:
 This optional desktop is defined in `docker-compose.insightful-test.yml` and uses
 `.env.insightful-test`. It does **not** touch the main neko `Makefile` or running
 neko stack.
+
+The default machine identity is:
+
+```text
+insightful-test-workvm-01
+```
+
+Override it with `INSIGHTFUL_HOSTNAME` in `.env.insightful-test` before starting
+the desktop.
 
 Important: this is still a containerized Linux desktop, not a full hardware VM. It
 may be useful for install-flow and browser testing, but if Insightful must be
