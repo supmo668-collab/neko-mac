@@ -124,6 +124,10 @@ then `make restart`.
 The hardest bug — the view **freezing on click** — and how it was tracked down is
 written up in [docs/POSTMORTEM.md](docs/POSTMORTEM.md).
 
+For installing Insightful safely on the host or on a separate test VM, see
+[docs/INSIGHTFUL.md](docs/INSIGHTFUL.md). A minimal UTM VM profile template lives at
+[vm/insightful-test.env.example](vm/insightful-test.env.example).
+
 ---
 
 ## Security
