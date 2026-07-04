@@ -133,9 +133,9 @@ case "$installer" in
     apt-get install -y "./$installer"
     ;;
   *.AppImage)
-    echo "Preparing AppImage: $installer"
+    echo "Launching AppImage: $installer"
     chmod +x "$installer"
-    echo "Run it with: $INSTALLER_DIR/$installer"
+    "./$installer"
     ;;
   *.sh)
     echo "Running shell installer: $installer"

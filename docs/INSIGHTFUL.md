@@ -93,6 +93,17 @@ Chrome note: Google Chrome for Linux is generally `amd64` only. On this Apple
 Silicon/arm64 desktop, use the preinstalled `chromium` browser unless your test
 requires an `amd64` guest/VM.
 
+If your Insightful/Workpuls installer is an `x86-64` AppImage, set this in
+`.env.insightful-test` and restart the desktop:
+
+```dotenv
+INSIGHTFUL_PLATFORM=linux/amd64
+```
+
+This runs the desktop under amd64 emulation so x86-64 AppImages can execute.
+The current `Workpuls.AppImage` installer is x86-64, so the local test desktop
+uses `INSIGHTFUL_PLATFORM=linux/amd64`.
+
 ### Step-by-step inside the desktop
 
 1. Open the remote desktop at `https://<TAILSCALE_IP>:3011` and log in.
@@ -121,6 +132,18 @@ requires an `amd64` guest/VM.
    ```
 
    or double-click **Install Insightful** on the desktop.
+
+For the current Workpuls installer, the expected file is:
+
+```text
+/config/Downloads/Insightful/Workpuls.AppImage
+```
+
+It maps from this host path:
+
+```text
+/Users/hiroshi/vm_setup/insightful-test/installers/Workpuls.AppImage
+```
 
 ### Common messages
 

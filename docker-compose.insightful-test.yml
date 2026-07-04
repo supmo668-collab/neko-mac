@@ -16,6 +16,7 @@
 services:
   insightful-test-desktop:
     image: "${INSIGHTFUL_DESKTOP_IMAGE:-lscr.io/linuxserver/webtop:ubuntu-mate}"
+    platform: "${INSIGHTFUL_PLATFORM:-linux/arm64}"
     container_name: "${INSIGHTFUL_CONTAINER_NAME:-insightful-test-desktop}"
     hostname: "${INSIGHTFUL_HOSTNAME:-insightful-test-workvm-01}"
     restart: unless-stopped
