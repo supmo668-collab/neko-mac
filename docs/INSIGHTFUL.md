@@ -82,11 +82,42 @@ creates:
 | --- | --- |
 | `/config/Shared/workvm-info.sh` | Print OS, hostname, architecture, browser, installer path |
 | `/config/Shared/install-insightful.sh` | Install the first `.deb`, `.AppImage`, or `.sh` from `/config/Downloads/Insightful` |
+| `/usr/local/bin/workvm-info` | Same info helper, available from any terminal |
+| `/usr/local/bin/install-insightful` | Same installer helper, available from any terminal |
 | Desktop shortcut: `Install Insightful` | Opens a terminal and runs the installer helper |
+| Desktop shortcut: `Work VM Info` | Opens a terminal and shows machine details |
+| Desktop shortcut: `Terminal` | Opens a terminal |
+| Desktop shortcut: `Chromium` | Opens the compatible Chrome-family browser |
 
 Chrome note: Google Chrome for Linux is generally `amd64` only. On this Apple
 Silicon/arm64 desktop, use the preinstalled `chromium` browser unless your test
 requires an `amd64` guest/VM.
+
+### Step-by-step inside the desktop
+
+1. Open the remote desktop at `https://<TAILSCALE_IP>:3011` and log in.
+2. If the desktop looks unchanged after bootstrapping, refresh the browser tab.
+3. Use the **Chromium** icon for browser work.
+4. Use the **Terminal** icon for shell work.
+5. Optional sanity check in Terminal:
+
+   ```bash
+   workvm-info
+   ```
+
+6. Put the admin-provided Insightful installer on the host at:
+
+   ```text
+   ./insightful-test/installers
+   ```
+
+7. In the VM desktop, install Insightful with either:
+
+   ```bash
+   install-insightful
+   ```
+
+   or double-click **Install Insightful** on the desktop.
 
 Open:
 

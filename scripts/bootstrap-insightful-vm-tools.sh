@@ -136,16 +136,73 @@ printf "Install helper:\n  /config/Shared/install-insightful.sh\n"
 INNER
 chmod +x /config/Shared/workvm-info.sh
 
+cat > /config/Shared/open-install-insightful-terminal.sh <<"INNER"
+#!/usr/bin/env bash
+mate-terminal -- bash -lc "/config/Shared/install-insightful.sh; echo; echo Press Enter to close...; read -r"
+INNER
+chmod +x /config/Shared/open-install-insightful-terminal.sh
+
+cat > /config/Shared/open-workvm-info-terminal.sh <<"INNER"
+#!/usr/bin/env bash
+mate-terminal -- bash -lc "/config/Shared/workvm-info.sh; echo; echo Press Enter to close...; read -r"
+INNER
+chmod +x /config/Shared/open-workvm-info-terminal.sh
+
 cat > /config/Desktop/Install-Insightful.desktop <<"INNER"
 [Desktop Entry]
 Type=Application
 Name=Install Insightful
 Comment=Install org-admin-provided Insightful package from /config/Downloads/Insightful
-Exec=mate-terminal -- bash -lc '/config/Shared/install-insightful.sh; echo; read -p "Press Enter to close..."'
+Exec=/config/Shared/open-install-insightful-terminal.sh
 Terminal=false
 Categories=Utility;
 INNER
-chmod +x /config/Desktop/Install-Insightful.desktop
+
+cat > /config/Desktop/Work-VM-Info.desktop <<"INNER"
+[Desktop Entry]
+Type=Application
+Name=Work VM Info
+Comment=Show OS, hostname, architecture, browser, and installer paths
+Exec=/config/Shared/open-workvm-info-terminal.sh
+Terminal=false
+Categories=Utility;
+INNER
+
+cat > /config/Desktop/Terminal.desktop <<"INNER"
+[Desktop Entry]
+Type=Application
+Name=Terminal
+Comment=Open a terminal in the Insightful test desktop
+Exec=mate-terminal
+Icon=utilities-terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+INNER
+
+if [ -f /usr/share/applications/chromium.desktop ]; then
+  cp /usr/share/applications/chromium.desktop /config/Desktop/Chromium.desktop
+else
+  cat > /config/Desktop/Chromium.desktop <<"INNER"
+[Desktop Entry]
+Type=Application
+Name=Chromium
+Comment=Open the Chromium browser
+Exec=chromium %U
+Icon=chromium
+Terminal=false
+Categories=Network;WebBrowser;
+INNER
+fi
+
+chmod 755 /config/Shared/*.sh /config/Desktop/*.desktop
+chown -R abc:abc /config/Shared /config/Downloads/Insightful /config/Desktop
+ln -sf /config/Shared/install-insightful.sh /usr/local/bin/install-insightful
+ln -sf /config/Shared/workvm-info.sh /usr/local/bin/workvm-info
+
+# MATE/Caja may hide launchers until they are marked trusted. Ignore if gio is absent.
+for launcher in /config/Desktop/*.desktop; do
+  gio set "$launcher" metadata::trusted true >/dev/null 2>&1 || true
+done
 
 apt-get clean
 rm -rf /var/lib/apt/lists/*
