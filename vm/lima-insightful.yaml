@@ -1,0 +1,161 @@
+# Lima VM for running Insightful/Workpuls with a full Linux session.
+#
+# Why a VM instead of the Docker desktop:
+#   - Real systemd + systemd-logind (org.freedesktop.login1)
+#   - Working Secret Service / gnome-keyring
+#   - Working FUSE (AppImages run normally)
+#   These are exactly what the Workpuls Electron agent needs and what the
+#   container could not provide.
+#
+# This is a FULL amd64 (x86_64) VM, emulated via QEMU on Apple Silicon.
+# Rationale: Workpuls is a dynamically-linked x86-64 Electron app. Rosetta on an
+# arm64 guest cannot run it because the arm64 userland lacks x86-64 system
+# libraries. A native amd64 guest provides the correct userland + systemd +
+# logind + keyring + FUSE. Emulation is slower but correct.
+#
+# Usage: driven by scripts/insightful-vm.sh (do not run limactl by hand unless you know why).
+
+vmType: "qemu"
+arch: "x86_64"
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+
+cpus: 4
+memory: "8GiB"
+disk: "40GiB"
+
+mounts:
+  # The Workpuls installer drop folder from the repo, available in the guest.
+  - location: "/Users/hiroshi/vm_setup/insightful-test/installers"
+    mountPoint: "/home/{{.User}}/installers"
+    writable: true
+
+# Expose the noVNC web desktop to the Mac at http://127.0.0.1:6080
+# (Use Tailscale-in-guest for remote access; see provisioning below.)
+portForwards:
+  - guestPort: 6080
+    hostIP: "127.0.0.1"
+    hostPort: 6080
+
+provision:
+  # 1) Lightweight desktop + session services + FUSE + keyring + remote desktop stack.
+  #    Openbox keeps the emulated VM lighter than full XFCE.
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends \
+        openbox tint2 xterm x11-xserver-utils \
+        dbus-x11 dbus-user-session \
+        gnome-keyring libsecret-1-0 \
+        libfuse2 fuse3 \
+        tigervnc-standalone-server tigervnc-common \
+        novnc websockify \
+        curl wget ca-certificates gnupg jq \
+        libasound2t64 libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 \
+        libcups2t64 libdrm2 libgbm1 libgtk-3-0t64 libxcomposite1 libxdamage1 \
+        libxfixes3 libxrandr2 libxkbcommon0 libpango-1.0-0 libcairo2 \
+        libatspi2.0-0 libx11-xcb1 libxshmfence1 \
+        chromium-browser || apt-get install -y --no-install-recommends chromium || true
+
+  # 2) Install Tailscale (auth is a manual step; needs user login).
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+      if ! command -v tailscale >/dev/null 2>&1; then
+        curl -fsSL https://tailscale.com/install.sh | sh
+      fi
+
+  # 3) Configure a VNC + noVNC desktop for the default user.
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux
+      mkdir -p "$HOME/.vnc"
+      cat > "$HOME/.vnc/xstartup" <<'XSTARTUP'
+      #!/bin/sh
+      unset SESSION_MANAGER
+      unset DBUS_SESSION_BUS_ADDRESS
+      export XKL_XMODMAP_DISABLE=1
+      # Start a session bus and gnome-keyring for the desktop session.
+      eval "$(dbus-launch --sh-syntax)"
+      eval "$(echo '' | gnome-keyring-daemon --start --components=secrets,pkcs11 2>/dev/null || true)"
+      export DBUS_SESSION_BUS_ADDRESS SSH_AUTH_SOCK
+      exec openbox-session
+      XSTARTUP
+      chmod +x "$HOME/.vnc/xstartup"
+
+  # 4) Systemd user services: VNC (5901) + noVNC web (6080).
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux
+      mkdir -p "$HOME/.config/systemd/user"
+      cat > "$HOME/.config/systemd/user/insightful-vnc.service" <<UNIT
+      [Unit]
+      Description=TigerVNC server for Insightful desktop
+      After=default.target
+      [Service]
+      Type=forking
+      ExecStartPre=-/usr/bin/vncserver -kill :1
+      ExecStart=/usr/bin/vncserver :1 -localhost yes -geometry 1600x900 -depth 24 -SecurityTypes None
+      ExecStop=/usr/bin/vncserver -kill :1
+      Restart=on-failure
+      [Install]
+      WantedBy=default.target
+      UNIT
+      cat > "$HOME/.config/systemd/user/insightful-novnc.service" <<UNIT
+      [Unit]
+      Description=noVNC web bridge for Insightful desktop
+      After=insightful-vnc.service
+      Requires=insightful-vnc.service
+      [Service]
+      ExecStart=/usr/bin/websockify --web=/usr/share/novnc/ 0.0.0.0:6080 localhost:5901
+      Restart=on-failure
+      [Install]
+      WantedBy=default.target
+      UNIT
+      systemctl --user daemon-reload
+      systemctl --user enable insightful-vnc.service insightful-novnc.service
+
+  # 5) Convenience: install/launch helper for the Workpuls AppImage.
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux
+      cat > "$HOME/install-insightful.sh" <<'HELP'
+      #!/usr/bin/env bash
+      set -euo pipefail
+      DIR="$HOME/installers"
+      app="$(find "$DIR" -maxdepth 1 -type f -name '*.AppImage' | sort | head -1)"
+      if [ -z "$app" ]; then
+        echo "No AppImage found in $DIR. Put Workpuls.AppImage there."
+        exit 1
+      fi
+      chmod +x "$app"
+      # Real VM has FUSE, so the AppImage runs directly.
+      exec "$app" "$@"
+      HELP
+      chmod +x "$HOME/install-insightful.sh"
+
+# Enable lingering so the user services run without an interactive login.
+message: |
+  Insightful VM is ready.
+
+  Enable the desktop services (first time):
+    limactl shell insightful-vm -- sudo loginctl enable-linger "$USER"
+    limactl shell insightful-vm -- systemctl --user start insightful-vnc insightful-novnc
+
+  Local access (Mac):
+    http://127.0.0.1:6080/vnc.html
+
+  Remote access via Tailscale (run once, follow the login URL):
+    limactl shell insightful-vm -- sudo tailscale up
+
+  Install/launch Workpuls inside the VM:
+    limactl shell insightful-vm -- ~/install-insightful.sh
