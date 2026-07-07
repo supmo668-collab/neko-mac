@@ -28,7 +28,7 @@ disk: "40GiB"
 
 mounts:
   # The Workpuls installer drop folder from the repo, available in the guest.
-  - location: "/Users/hiroshi/vm_setup/insightful-test/installers"
+  - location: "~/vm_setup/insightful-test/installers"
     mountPoint: "/home/{{.User}}/installers"
     writable: true
 

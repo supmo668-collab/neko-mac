@@ -120,6 +120,18 @@ vm-install: ## Launch the Workpuls installer inside the work VM
 vm-services: ## Enable & start the VM desktop services (VNC + noVNC)
 	@$(VM) services
 
+.PHONY: vm-ensure
+vm-ensure: ## Start VM + desktop services if not already running (idempotent)
+	@$(VM) ensure
+
+.PHONY: vm-autostart
+vm-autostart: ## Keep the VM always-on: install launchd agent (starts at login)
+	@$(VM) autostart
+
+.PHONY: vm-autostart-remove
+vm-autostart-remove: ## Stop keeping the VM always-on (remove launchd agent)
+	@$(VM) autostart-remove
+
 .PHONY: vm-delete
 vm-delete: ## Delete the work VM (destructive)
 	@$(VM) delete

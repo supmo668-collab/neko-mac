@@ -113,7 +113,7 @@ if [ -z "$installer" ]; then
   cat >&2 <<MSG
 No Insightful installer found in $INSTALLER_DIR.
 Place the org-admin-provided installer in the host path:
-  /Users/hiroshi/vm_setup/insightful-test/installers
+  ~/vm_setup/insightful-test/installers
 
 It will appear inside this desktop at:
   $INSTALLER_DIR

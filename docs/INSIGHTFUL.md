@@ -142,7 +142,7 @@ For the current Workpuls installer, the expected file is:
 It maps from this host path:
 
 ```text
-/Users/hiroshi/vm_setup/insightful-test/installers/Workpuls.AppImage
+~/vm_setup/insightful-test/installers/Workpuls.AppImage
 ```
 
 ### Common messages
@@ -155,7 +155,7 @@ normal setup output stays readable.
 folder is still empty. Put the org-admin-provided `.deb`, `.AppImage`, or `.sh` in:
 
 ```text
-/Users/hiroshi/vm_setup/insightful-test/installers
+~/vm_setup/insightful-test/installers
 ```
 
 Then run inside the VM:
