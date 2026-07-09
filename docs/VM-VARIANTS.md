@@ -77,9 +77,23 @@ secure context, so the browser clipboard integration works, with **no cert warni
   at `~/.vnc/kasm.{crt,key}` even though TLS is off), started with `-select-de manual`.
 - **Why HTTP not HTTPS:** KasmVNC's self-signed cert made the browser reject the TLS
   handshake repeatedly, which tripped KasmVNC's brute-force **IP blacklist** and made the
-  site look "down." Plain HTTP over localhost avoids that entirely. For *remote* access,
-  front it with real HTTPS via `tailscale serve` (proper cert → no blacklist, secure
-  context for clipboard) rather than the self-signed cert.
+  site look "down." Plain HTTP over localhost avoids that entirely.
+
+### Serving to remote/international collaborators
+
+Kept **local-only** by default. To expose it securely to your tailnet (WireGuard-encrypted,
+real Let's Encrypt HTTPS → secure context so seamless clipboard still works, no self-signed
+blacklist):
+
+```bash
+make vm-vmnet-serve        # tailscale serve --bg http://127.0.0.1:6081  -> https://<mac>.<tailnet>.ts.net/
+make vm-vmnet-serve-stop   # back to local-only
+```
+
+Prerequisites: enable **HTTPS Certificates** at <https://login.tailscale.com/admin/dns>
+(the target checks this and tells you if it's off), and **share the `macbook-pro` node** with
+the collaborator (admin → Machines → Share) so they can open the URL. Browsing still egresses
+the Mac's US residential IP, so the geo requirement holds.
 
 > NOTE: KasmVNC was set up on the *running* vmnet VM (runtime), not yet baked into
 > `vm/lima-insightful-vmnet.yaml` provisioning — a fresh `make vm-vmnet-create` would come

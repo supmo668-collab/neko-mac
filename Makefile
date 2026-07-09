@@ -193,6 +193,20 @@ vm-vmnet-autostart-remove: ## [vmnet] Stop keeping the vmnet VM always-on
 vm-vmnet-delete: ## [vmnet] Delete the vmnet VM (destructive)
 	@$(VMNET) delete
 
+.PHONY: vm-vmnet-serve
+vm-vmnet-serve: ## [vmnet] Serve the KasmVNC desktop to your tailnet over HTTPS (remote collaborators)
+	@if tailscale cert 2>&1 | grep -q "not enabled"; then \
+		echo "✗ Enable HTTPS certs first: https://login.tailscale.com/admin/dns  (HTTPS Certificates)"; \
+		exit 1; fi
+	@tailscale serve --bg http://127.0.0.1:6081
+	@echo "── Now serving KasmVNC to your tailnet (WireGuard-encrypted, real HTTPS) ──"
+	@tailscale serve status
+	@echo "Then: share the 'macbook-pro' node with the collaborator (admin → Machines → Share)."
+
+.PHONY: vm-vmnet-serve-stop
+vm-vmnet-serve-stop: ## [vmnet] Stop serving to the tailnet (back to local-only)
+	@tailscale serve reset && echo "Tailnet serve stopped — KasmVNC is local-only again."
+
 ## ─── Internal ────────────────────────────────────────────────────────────────
 
 .PHONY: check-env
