@@ -19,6 +19,8 @@ case "$INSIGHTFUL_VARIANT" in
     LAUNCHD_LABEL="com.insightful.vm"
     LAUNCHD_LOG="$HOME/Library/Logs/insightful-vm.autostart.log"
     HOST_PORT="6080"
+    VNC_SERVICES="insightful-vnc.service insightful-novnc.service"  # TigerVNC + noVNC
+    SCHEME="http"; URL_PATH="/vnc.html"
     ;;
   vmnet)
     VM_NAME="insightful-vm-vmnet"
@@ -26,6 +28,8 @@ case "$INSIGHTFUL_VARIANT" in
     LAUNCHD_LABEL="com.insightful.vm.vmnet"
     LAUNCHD_LOG="$HOME/Library/Logs/insightful-vm-vmnet.autostart.log"
     HOST_PORT="6081"
+    VNC_SERVICES="insightful-kasmvnc.service"  # KasmVNC (HTTPS, seamless clipboard)
+    SCHEME="https"; URL_PATH="/"
     ;;
   *)
     echo "Unknown INSIGHTFUL_VARIANT='$INSIGHTFUL_VARIANT' (expected: slirp | vmnet)" >&2
@@ -83,8 +87,8 @@ case "$cmd" in
   services)
     limactl shell "$VM_NAME" -- sudo loginctl enable-linger "$(limactl shell "$VM_NAME" -- whoami)"
     limactl shell "$VM_NAME" -- systemctl --user daemon-reload
-    limactl shell "$VM_NAME" -- systemctl --user enable --now insightful-vnc.service insightful-novnc.service
-    echo "Desktop services started."
+    limactl shell "$VM_NAME" -- systemctl --user enable --now $VNC_SERVICES
+    echo "Desktop services started ($VNC_SERVICES)."
     ;;
   tailscale)
     limactl shell "$VM_NAME" -- sudo tailscale up
@@ -94,10 +98,10 @@ case "$cmd" in
     ;;
   url)
     echo "Variant       : $INSIGHTFUL_VARIANT ($VM_NAME)"
-    echo "Local desktop : http://127.0.0.1:$HOST_PORT/vnc.html"
+    echo "Local desktop : ${SCHEME}://127.0.0.1:$HOST_PORT$URL_PATH"
     ip="$(vm_ip)"
     if [ -n "$ip" ]; then
-      echo "Tailscale     : http://$ip:6080/vnc.html"
+      echo "Tailscale     : ${SCHEME}://$ip:6080$URL_PATH"
     else
       echo "Tailscale     : run 'scripts/insightful-vm.sh tailscale' first"
     fi
@@ -115,9 +119,8 @@ case "$cmd" in
     # Bring the desktop services up (no-op if already active).
     user="$(limactl shell "$VM_NAME" -- whoami)"
     limactl shell "$VM_NAME" -- sudo loginctl enable-linger "$user" >/dev/null 2>&1 || true
-    limactl shell "$VM_NAME" -- systemctl --user enable --now \
-      insightful-vnc.service insightful-novnc.service >/dev/null 2>&1 || true
-    echo "[ensure] VM running; desktop at http://127.0.0.1:$HOST_PORT/vnc.html"
+    limactl shell "$VM_NAME" -- systemctl --user enable --now $VNC_SERVICES >/dev/null 2>&1 || true
+    echo "[ensure] VM running; desktop at ${SCHEME}://127.0.0.1:$HOST_PORT$URL_PATH"
     ;;
   autostart)
     # Install a per-user launchd agent that keeps the VM always on: it runs the

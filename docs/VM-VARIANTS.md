@@ -58,3 +58,24 @@ experiment anytime with `make vm-vmnet-delete` (leaves the working VM untouched)
 Because they use different instances and host ports, both desktops can be open
 simultaneously — `:6080` (slirp) and `:6081` (vmnet) — which is the intended way to
 compare responsiveness before deciding whether to switch.
+
+## vmnet desktop uses KasmVNC (seamless clipboard)
+
+The vmnet VM serves its desktop with **KasmVNC** (instead of TigerVNC + noVNC), which
+provides genuine **bidirectional seamless copy/paste** and better WAN performance. It is
+served over **HTTPS** (self-signed) at `https://127.0.0.1:6081/` — accept the one-time
+cert warning; the HTTPS/localhost secure context is what enables the browser clipboard
+integration.
+
+- Web client: `https://127.0.0.1:6081/` (login user **`collab`**; password set via
+  `kasmvncpasswd` — reset with `limactl shell insightful-vm-vmnet -- kasmvncpasswd -u collab -w`).
+- Service: systemd user unit `insightful-kasmvnc.service` (replaces `insightful-vnc` +
+  `insightful-novnc` on this VM). The script's `services`/`ensure`/`autostart` target it
+  automatically for the vmnet variant.
+- Config: `~/.vnc/kasmvnc.yaml` (`network.protocol: http` + `ssl.require_ssl: true`,
+  `websocket_port: 6080`, self-signed cert at `~/.vnc/kasm.{crt,key}`), started with
+  `-select-de manual` so it uses the existing Openbox `~/.vnc/xstartup`.
+
+> NOTE: KasmVNC was set up on the *running* vmnet VM (runtime), not yet baked into
+> `vm/lima-insightful-vmnet.yaml` provisioning — a fresh `make vm-vmnet-create` would come
+> up with the base noVNC until the KasmVNC steps are added to the config's provision block.
