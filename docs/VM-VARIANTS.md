@@ -63,18 +63,23 @@ compare responsiveness before deciding whether to switch.
 
 The vmnet VM serves its desktop with **KasmVNC** (instead of TigerVNC + noVNC), which
 provides genuine **bidirectional seamless copy/paste** and better WAN performance. It is
-served over **HTTPS** (self-signed) at `https://127.0.0.1:6081/` — accept the one-time
-cert warning; the HTTPS/localhost secure context is what enables the browser clipboard
-integration.
+served over **plain HTTP** at `http://127.0.0.1:6081/` — over localhost that's still a
+secure context, so the browser clipboard integration works, with **no cert warning**.
 
-- Web client: `https://127.0.0.1:6081/` (login user **`collab`**; password set via
+- Web client: `http://127.0.0.1:6081/` (login user **`collab`**; password set via
   `kasmvncpasswd` — reset with `limactl shell insightful-vm-vmnet -- kasmvncpasswd -u collab -w`).
 - Service: systemd user unit `insightful-kasmvnc.service` (replaces `insightful-vnc` +
   `insightful-novnc` on this VM). The script's `services`/`ensure`/`autostart` target it
-  automatically for the vmnet variant.
-- Config: `~/.vnc/kasmvnc.yaml` (`network.protocol: http` + `ssl.require_ssl: true`,
-  `websocket_port: 6080`, self-signed cert at `~/.vnc/kasm.{crt,key}`), started with
-  `-select-de manual` so it uses the existing Openbox `~/.vnc/xstartup`.
+  automatically for the vmnet variant, and `ensure` now self-heals (restarts the desktop
+  if its port stops listening).
+- Config: `~/.vnc/kasmvnc.yaml` (`network.protocol: http` + `ssl.require_ssl: false`,
+  `websocket_port: 6080`; a cert must still be present so `pem_certificate`/`pem_key` point
+  at `~/.vnc/kasm.{crt,key}` even though TLS is off), started with `-select-de manual`.
+- **Why HTTP not HTTPS:** KasmVNC's self-signed cert made the browser reject the TLS
+  handshake repeatedly, which tripped KasmVNC's brute-force **IP blacklist** and made the
+  site look "down." Plain HTTP over localhost avoids that entirely. For *remote* access,
+  front it with real HTTPS via `tailscale serve` (proper cert → no blacklist, secure
+  context for clipboard) rather than the self-signed cert.
 
 > NOTE: KasmVNC was set up on the *running* vmnet VM (runtime), not yet baked into
 > `vm/lima-insightful-vmnet.yaml` provisioning — a fresh `make vm-vmnet-create` would come

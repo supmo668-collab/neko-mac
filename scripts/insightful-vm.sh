@@ -28,8 +28,8 @@ case "$INSIGHTFUL_VARIANT" in
     LAUNCHD_LABEL="com.insightful.vm.vmnet"
     LAUNCHD_LOG="$HOME/Library/Logs/insightful-vm-vmnet.autostart.log"
     HOST_PORT="6081"
-    VNC_SERVICES="insightful-kasmvnc.service"  # KasmVNC (HTTPS, seamless clipboard)
-    SCHEME="https"; URL_PATH="/"
+    VNC_SERVICES="insightful-kasmvnc.service"  # KasmVNC (seamless clipboard)
+    SCHEME="http"; URL_PATH="/"  # plain HTTP over localhost (secure context; no self-signed-cert lockout)
     ;;
   *)
     echo "Unknown INSIGHTFUL_VARIANT='$INSIGHTFUL_VARIANT' (expected: slirp | vmnet)" >&2
@@ -120,6 +120,12 @@ case "$cmd" in
     user="$(limactl shell "$VM_NAME" -- whoami)"
     limactl shell "$VM_NAME" -- sudo loginctl enable-linger "$user" >/dev/null 2>&1 || true
     limactl shell "$VM_NAME" -- systemctl --user enable --now $VNC_SERVICES >/dev/null 2>&1 || true
+    # Self-heal: if the desktop web port is not actually listening in the guest
+    # (e.g. the VNC process crashed), restart the service(s). Runs every 120s via launchd.
+    if ! limactl shell "$VM_NAME" -- bash -lc "ss -tln 2>/dev/null | grep -q ':6080 '"; then
+      echo "[ensure] desktop not listening -> restarting $VNC_SERVICES"
+      limactl shell "$VM_NAME" -- systemctl --user restart $VNC_SERVICES >/dev/null 2>&1 || true
+    fi
     echo "[ensure] VM running; desktop at ${SCHEME}://127.0.0.1:$HOST_PORT$URL_PATH"
     ;;
   autostart)
