@@ -138,7 +138,7 @@ vm-delete: ## Delete the work VM (destructive)
 
 ## ─── Parallel vmnet variant (lower-latency net; separate, independent VM) ────
 # Same commands, prefixed `vm-vmnet-`. Independent instance (insightful-vm-vmnet),
-# config (vm/lima-insightful-vmnet.yaml), host port :6081, launchd agent
+# config (vm/lima-insightful-vmnet.yaml), host port :6080, launchd agent
 # (com.insightful.vm.vmnet) — does NOT touch the original slirp VM above.
 # Prereq: brew install socket_vmnet && limactl sudoers | sudo tee /etc/sudoers.d/lima
 # See docs/VM-VARIANTS.md.
@@ -146,7 +146,7 @@ vm-delete: ## Delete the work VM (destructive)
 VMNET := INSIGHTFUL_VARIANT=vmnet scripts/insightful-vm.sh
 
 .PHONY: vm-vmnet-create
-vm-vmnet-create: ## [vmnet] Build & start the parallel vmnet VM (desktop on host :6081)
+vm-vmnet-create: ## [vmnet] Build & start the parallel vmnet VM (desktop on host :6080)
 	@$(VMNET) create
 
 .PHONY: vm-vmnet-up
@@ -198,7 +198,7 @@ vm-vmnet-serve: ## [vmnet] Serve the KasmVNC desktop to your tailnet over HTTPS 
 	@if tailscale cert 2>&1 | grep -q "not enabled"; then \
 		echo "✗ Enable HTTPS certs first: https://login.tailscale.com/admin/dns  (HTTPS Certificates)"; \
 		exit 1; fi
-	@tailscale serve --bg http://127.0.0.1:6081
+	@tailscale serve --bg http://127.0.0.1:6080
 	@echo "── Now serving KasmVNC to your tailnet (WireGuard-encrypted, real HTTPS) ──"
 	@tailscale serve status
 	@echo "Then: share the 'macbook-pro' node with the collaborator (admin → Machines → Share)."

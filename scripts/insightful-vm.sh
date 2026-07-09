@@ -27,7 +27,7 @@ case "$INSIGHTFUL_VARIANT" in
     CONFIG="$ROOT_DIR/vm/lima-insightful-vmnet.yaml"
     LAUNCHD_LABEL="com.insightful.vm.vmnet"
     LAUNCHD_LOG="$HOME/Library/Logs/insightful-vm-vmnet.autostart.log"
-    HOST_PORT="6081"
+    HOST_PORT="6080"
     VNC_SERVICES="insightful-kasmvnc.service"  # KasmVNC (seamless clipboard)
     SCHEME="http"; URL_PATH="/"  # plain HTTP over localhost (secure context; no self-signed-cert lockout)
     ;;

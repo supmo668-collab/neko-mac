@@ -51,7 +51,7 @@ mounts:
 portForwards:
   - guestPort: 6080
     hostIP: "127.0.0.1"
-    hostPort: 6081
+    hostPort: 6080
 
 provision:
   # 1) Lightweight desktop + session services + FUSE + keyring + remote desktop stack.
