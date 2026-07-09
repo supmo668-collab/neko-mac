@@ -1,3 +1,10 @@
+# === PARALLEL VARIANT: vmnet networking ===
+# Derived from vm/lima-insightful.yaml (the ORIGINAL slirp method — untouched).
+# Only two deltas vs the original: (a) adds a socket_vmnet 'shared' NIC; (b) the
+# noVNC web desktop is forwarded to host port 6081 (slirp uses 6080), so BOTH
+# VMs can run at the same time without a port collision.
+# Drive it with:  INSIGHTFUL_VARIANT=vmnet scripts/insightful-vm.sh <cmd>   (make vm-vmnet-*)
+#
 # Lima VM for running Insightful/Workpuls with a full Linux session.
 #
 # Why a VM instead of the Docker desktop:
@@ -26,6 +33,13 @@ cpus: 8
 memory: "16GiB"
 disk: "40GiB"
 
+networks:
+  # vmnet (socket_vmnet) shared network — direct L2 to the Mac, far less
+  # latency/jitter than the default user-mode (slirp) NIC. Prereqs on the host:
+  #   brew install socket_vmnet
+  #   limactl sudoers | sudo tee /etc/sudoers.d/lima
+  - lima: shared
+
 mounts:
   # The Workpuls installer drop folder from the repo, available in the guest.
   - location: "~/vm_setup/insightful-test/installers"
@@ -37,7 +51,7 @@ mounts:
 portForwards:
   - guestPort: 6080
     hostIP: "127.0.0.1"
-    hostPort: 6080
+    hostPort: 6081
 
 provision:
   # 1) Lightweight desktop + session services + FUSE + keyring + remote desktop stack.

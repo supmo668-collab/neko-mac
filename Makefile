@@ -136,6 +136,63 @@ vm-autostart-remove: ## Stop keeping the VM always-on (remove launchd agent)
 vm-delete: ## Delete the work VM (destructive)
 	@$(VM) delete
 
+## ─── Parallel vmnet variant (lower-latency net; separate, independent VM) ────
+# Same commands, prefixed `vm-vmnet-`. Independent instance (insightful-vm-vmnet),
+# config (vm/lima-insightful-vmnet.yaml), host port :6081, launchd agent
+# (com.insightful.vm.vmnet) — does NOT touch the original slirp VM above.
+# Prereq: brew install socket_vmnet && limactl sudoers | sudo tee /etc/sudoers.d/lima
+# See docs/VM-VARIANTS.md.
+
+VMNET := INSIGHTFUL_VARIANT=vmnet scripts/insightful-vm.sh
+
+.PHONY: vm-vmnet-create
+vm-vmnet-create: ## [vmnet] Build & start the parallel vmnet VM (desktop on host :6081)
+	@$(VMNET) create
+
+.PHONY: vm-vmnet-up
+vm-vmnet-up: ## [vmnet] Start the existing vmnet VM
+	@$(VMNET) start
+
+.PHONY: vm-vmnet-down
+vm-vmnet-down: ## [vmnet] Stop the vmnet VM
+	@$(VMNET) stop
+
+.PHONY: vm-vmnet-url
+vm-vmnet-url: ## [vmnet] Print the vmnet VM desktop URLs
+	@$(VMNET) url
+
+.PHONY: vm-vmnet-shell
+vm-vmnet-shell: ## [vmnet] Open a shell inside the vmnet VM
+	@$(VMNET) shell
+
+.PHONY: vm-vmnet-tailscale
+vm-vmnet-tailscale: ## [vmnet] Join the vmnet VM to your Tailnet (interactive)
+	@$(VMNET) tailscale
+
+.PHONY: vm-vmnet-install
+vm-vmnet-install: ## [vmnet] Launch the Workpuls installer inside the vmnet VM
+	@$(VMNET) install
+
+.PHONY: vm-vmnet-services
+vm-vmnet-services: ## [vmnet] Start the vmnet VM desktop services (VNC + noVNC)
+	@$(VMNET) services
+
+.PHONY: vm-vmnet-ensure
+vm-vmnet-ensure: ## [vmnet] Start vmnet VM + services if not running (idempotent)
+	@$(VMNET) ensure
+
+.PHONY: vm-vmnet-autostart
+vm-vmnet-autostart: ## [vmnet] Keep the vmnet VM always-on (separate launchd agent)
+	@$(VMNET) autostart
+
+.PHONY: vm-vmnet-autostart-remove
+vm-vmnet-autostart-remove: ## [vmnet] Stop keeping the vmnet VM always-on
+	@$(VMNET) autostart-remove
+
+.PHONY: vm-vmnet-delete
+vm-vmnet-delete: ## [vmnet] Delete the vmnet VM (destructive)
+	@$(VMNET) delete
+
 ## ─── Internal ────────────────────────────────────────────────────────────────
 
 .PHONY: check-env

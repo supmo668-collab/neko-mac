@@ -4,13 +4,35 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VM_NAME="insightful-vm"
-CONFIG="$ROOT_DIR/vm/lima-insightful.yaml"
 
-# launchd (always-on) settings.
-LAUNCHD_LABEL="com.insightful.vm"
+# ── VM variant selection ─────────────────────────────────────────────────────
+# Two parallel, independent VMs can coexist. The default is the ORIGINAL,
+# working method (slirp / QEMU user-mode networking) — unchanged. Set
+# INSIGHTFUL_VARIANT=vmnet (via the `vm-vmnet-*` make targets) to drive the
+# parallel, lower-latency vmnet VM. Each variant has its own instance name,
+# Lima config, host port, and launchd agent, so neither disturbs the other.
+INSIGHTFUL_VARIANT="${INSIGHTFUL_VARIANT:-slirp}"
+case "$INSIGHTFUL_VARIANT" in
+  slirp)
+    VM_NAME="insightful-vm"
+    CONFIG="$ROOT_DIR/vm/lima-insightful.yaml"
+    LAUNCHD_LABEL="com.insightful.vm"
+    LAUNCHD_LOG="$HOME/Library/Logs/insightful-vm.autostart.log"
+    HOST_PORT="6080"
+    ;;
+  vmnet)
+    VM_NAME="insightful-vm-vmnet"
+    CONFIG="$ROOT_DIR/vm/lima-insightful-vmnet.yaml"
+    LAUNCHD_LABEL="com.insightful.vm.vmnet"
+    LAUNCHD_LOG="$HOME/Library/Logs/insightful-vm-vmnet.autostart.log"
+    HOST_PORT="6081"
+    ;;
+  *)
+    echo "Unknown INSIGHTFUL_VARIANT='$INSIGHTFUL_VARIANT' (expected: slirp | vmnet)" >&2
+    exit 1
+    ;;
+esac
 LAUNCHD_PLIST="$HOME/Library/LaunchAgents/$LAUNCHD_LABEL.plist"
-LAUNCHD_LOG="$HOME/Library/Logs/insightful-vm.autostart.log"
 
 usage() {
   cat <<'USAGE'
@@ -71,7 +93,8 @@ case "$cmd" in
     limactl shell "$VM_NAME" -- bash -lc '~/install-insightful.sh'
     ;;
   url)
-    echo "Local desktop : http://127.0.0.1:6080/vnc.html"
+    echo "Variant       : $INSIGHTFUL_VARIANT ($VM_NAME)"
+    echo "Local desktop : http://127.0.0.1:$HOST_PORT/vnc.html"
     ip="$(vm_ip)"
     if [ -n "$ip" ]; then
       echo "Tailscale     : http://$ip:6080/vnc.html"
@@ -94,7 +117,7 @@ case "$cmd" in
     limactl shell "$VM_NAME" -- sudo loginctl enable-linger "$user" >/dev/null 2>&1 || true
     limactl shell "$VM_NAME" -- systemctl --user enable --now \
       insightful-vnc.service insightful-novnc.service >/dev/null 2>&1 || true
-    echo "[ensure] VM running; desktop at http://127.0.0.1:6080/vnc.html"
+    echo "[ensure] VM running; desktop at http://127.0.0.1:$HOST_PORT/vnc.html"
     ;;
   autostart)
     # Install a per-user launchd agent that keeps the VM always on: it runs the
@@ -118,6 +141,8 @@ case "$cmd" in
   <dict>
     <key>PATH</key>
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>INSIGHTFUL_VARIANT</key>
+    <string>$INSIGHTFUL_VARIANT</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
