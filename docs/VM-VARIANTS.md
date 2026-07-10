@@ -100,3 +100,35 @@ the Mac's US residential IP, so the geo requirement holds.
 > NOTE: KasmVNC was set up on the *running* vmnet VM (runtime), not yet baked into
 > `vm/lima-insightful-vmnet.yaml` provisioning — a fresh `make vm-vmnet-create` would come
 > up with the base noVNC until the KasmVNC steps are added to the config's provision block.
+> The tuned config + cert can be re-applied to a running VM with `scripts/kasmvnc-tune.sh`.
+
+## "noVNC encountered an error" — cause & fix
+
+Diagnosed systematically with `scripts/novnc-repro.js` (headless Chrome that drives the
+client for 90 s and logs console/pageerror/websocket/cert failures + the status banner):
+
+- **Over `http` → `ws`: flawless.** 90 s of mouse/scroll/click, "Connected (unencrypted)
+  to Cowork", zero drops. The server and encoder are fine — it is **not** a crash (Xvnc
+  stays up; no OOM/segfault).
+- **Over `https` → `wss`: `net::ERR_CERT_AUTHORITY_INVALID`.** KasmVNC's self-signed cert
+  isn't trusted, so the browser refuses the `wss` channel outright (a `wss` channel can't
+  show a click-through "proceed"). **That refusal is the "noVNC encountered an error."**
+- KasmVNC sends **no HSTS and no redirect**, so the browser chose `https` on its own
+  (bookmark / typed / Chrome's secure-connection upgrade).
+
+**Fix (both paths clean afterward):** give the cert a matching SAN and trust it on the Mac.
+
+```bash
+# 1) SAN cert + tuned config on the guest (idempotent):
+limactl shell insightful-vm-vmnet -- bash < scripts/kasmvnc-tune.sh
+
+# 2) trust it on the Mac (one-time; pops a keychain password prompt):
+limactl copy insightful-vm-vmnet:/home/mo.guest/.vnc/kasm.crt /tmp/kasm-127.crt
+security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db /tmp/kasm-127.crt
+
+# 3) verify end-to-end (should print "Connected (encrypted) to Cowork"):
+KASM_USER=collab KASM_PASS=... node scripts/novnc-repro.js /tmp/novnc.log https://127.0.0.1:6080/
+```
+
+After trust, `http`/`ws` **and** `https`/`wss` both connect clean. For remote/tailnet access,
+prefer real Let's Encrypt certs via `make vm-vmnet-serve` (no manual trust needed).
