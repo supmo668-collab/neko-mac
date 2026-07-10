@@ -159,3 +159,18 @@ repeatedly; after `webp_encoding_time: 0`, **0 occurrences** across 90 s of clic
   `--disable-gpu`, or add `--use-gl=angle --use-angle=swiftshader` for a software GL decoder.
 - Don't keep **DevTools** open on the noVNC tab — throttling/paused JS desyncs the frame decoder.
 - The real fix is the server one above; the browser tweaks only help when video mode is still on.
+
+### White-blank / "Failed to decode frame" over the tailnet (link saturation)
+
+Forcing JPEG (the WebCodecs fix) ~triples bytes/frame vs WebP. When Claude drives over a
+constrained/remote path (tailnet → the `socat 100.66.89.81:6080` raw relay → KasmVNC), the
+fat stream **saturates the link**: frames arrive broken → `Failed to decode frame` / the
+screen flashes white after each frame. Reproduced with Playwright network throttling: q9/30fps
+failed at 2 Mbps; a **low-bandwidth profile (`min_quality 2`, `max_quality 6`, `max_frame_rate
+16`) survives 1 Mbps with 0 errors / 0 blanking** (`scripts/novnc-flicker.js` samples the
+canvas to detect it). `scripts/kasmvnc-tune.sh` ships these values; raise them on a fast local link.
+
+**The clean permanent fix is browser-side:** give Claude's driving browser **WebCodecs** (run
+`--headless=new` or headful Chrome, don't `--disable-features=WebCodecs`). Then WebP works again
+— sharp *and* ~1/3 the bytes — so you can revert to `webp_encoding_time` default + high quality.
+The whole JPEG/low-bandwidth chain exists only to work around a WebCodecs-less debug browser.

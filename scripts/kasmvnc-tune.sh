@@ -47,11 +47,15 @@ server:
     active_user_session_timeout: never
     inactive_user_session_timeout: never
 encoding:
-  max_frame_rate: 30           # software WebP ~35 ms/frame (~28 fps ceiling); 60 over-drove it
+  # LOW-BANDWIDTH profile. Forcing JPEG (below) ~triples bytes/frame vs WebP, and over a
+  # constrained/remote link (e.g. Claude driving through a tailnet socat relay) a fat JPEG
+  # stream saturates the link -> frames arrive broken -> "Failed to decode frame" / white
+  # flashes. Verified: q9/30fps failed at 2 Mbps; q2-6/16fps survives down to 1 Mbps clean.
+  # On a fast LOCAL link you can raise these (max_quality 8-9, frame_rate 30) for crisper text.
+  max_frame_rate: 16
   rect_encoding_mode:
-    min_quality: 5             # faster encode during motion -> lower input latency
-    max_quality: 9             # settled frames go sharp...
-    consider_lossless_quality: 10  # ...then lossless -> legible screenshots for an agent
+    min_quality: 2
+    max_quality: 6             # keep <10 so lossless refresh (huge bandwidth spikes) never fires
   video_encoding_mode:
     # THE key fix for "Failed to decode frame at index 0": KasmVNC's client decodes WebP
     # rects with WebCodecs `ImageDecoder`. When the viewing browser has no WebCodecs
