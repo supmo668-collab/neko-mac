@@ -163,14 +163,18 @@ repeatedly; after `webp_encoding_time: 0`, **0 occurrences** across 90 s of clic
 ### White-blank / "Failed to decode frame" over the tailnet (link saturation)
 
 Forcing JPEG (the WebCodecs fix) ~triples bytes/frame vs WebP. When Claude drives over a
-constrained/remote path (tailnet → the `socat 100.66.89.81:6080` raw relay → KasmVNC), the
-fat stream **saturates the link**: frames arrive broken → `Failed to decode frame` / the
-screen flashes white after each frame. Reproduced with Playwright network throttling: q9/30fps
-failed at 2 Mbps; a **low-bandwidth profile (`min_quality 2`, `max_quality 6`, `max_frame_rate
-16`) survives 1 Mbps with 0 errors / 0 blanking** (`scripts/novnc-flicker.js` samples the
-canvas to detect it). `scripts/kasmvnc-tune.sh` ships these values; raise them on a fast local link.
+constrained/remote path (tailnet → the `socat 100.66.89.81:6080` raw relay → KasmVNC), a
+*fat* JPEG stream **saturates the link**: frames arrive broken → `Failed to decode frame` / the
+screen flashes white after each frame. Reproduced with Playwright network throttling
+(`scripts/novnc-flicker.js` samples the canvas).
 
-**The clean permanent fix is browser-side:** give Claude's driving browser **WebCodecs** (run
-`--headless=new` or headful Chrome, don't `--disable-features=WebCodecs`). Then WebP works again
-— sharp *and* ~1/3 the bytes — so you can revert to `webp_encoding_time` default + high quality.
-The whole JPEG/low-bandwidth chain exists only to work around a WebCodecs-less debug browser.
+**WebP is NOT the answer** — verified: WebP q9 throws `Failed to decode frame` in a headless/agent
+browser **even with WebCodecs enabled** (its `ImageDecoder` path is unreliable there). JPEG via
+`createImageBitmap` is the only dependable decode path for how Claude drives.
+
+**Correct profile = JPEG, sharp static text, low frame rate** (`scripts/kasmvnc-tune.sh` ships it):
+save bandwidth with **frame rate, not quality**. Keep `max_quality: 9` so static text stays
+**legible**, let dynamic quality soften only motion (`min_quality: 4`), and cap `max_frame_rate: 12`.
+Verified: sharp/legible with WebCodecs **off**, and **0 decode-errors / 0 blanking at 2 Mbps**.
+Bandwidth via fps keeps text readable (unlike lowering quality, which blurs it). On a fast local
+link, raise `max_frame_rate` for smoother motion — quality is already maxed.

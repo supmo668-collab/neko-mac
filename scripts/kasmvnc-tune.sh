@@ -47,15 +47,17 @@ server:
     active_user_session_timeout: never
     inactive_user_session_timeout: never
 encoding:
-  # LOW-BANDWIDTH profile. Forcing JPEG (below) ~triples bytes/frame vs WebP, and over a
-  # constrained/remote link (e.g. Claude driving through a tailnet socat relay) a fat JPEG
-  # stream saturates the link -> frames arrive broken -> "Failed to decode frame" / white
-  # flashes. Verified: q9/30fps failed at 2 Mbps; q2-6/16fps survives down to 1 Mbps clean.
-  # On a fast LOCAL link you can raise these (max_quality 8-9, frame_rate 30) for crisper text.
-  max_frame_rate: 16
+  # JPEG (webp_encoding_time: 0 below) is the ONLY reliable decode path for how Claude drives:
+  # a headless/agent browser cannot reliably decode WebP via ImageDecoder even WITH WebCodecs.
+  # For LEGIBILITY on a constrained link, save bandwidth via FRAME RATE, not quality: keep
+  # static frames SHARP (max_quality 9 = readable text) and let dynamic quality soften only
+  # motion (min_quality 4 - you don't read mid-scroll). Verified: sharp text with WebCodecs OFF,
+  # 0 decode-errors / 0 blanking over a throttled 2 Mbps link. On a fast local link raise
+  # max_frame_rate for smoother motion; quality is already maxed.
+  max_frame_rate: 12
   rect_encoding_mode:
-    min_quality: 2
-    max_quality: 6             # keep <10 so lossless refresh (huge bandwidth spikes) never fires
+    min_quality: 4
+    max_quality: 9             # SHARP static text; keep <10 so no lossless-refresh bandwidth spikes
   video_encoding_mode:
     # THE key fix for "Failed to decode frame at index 0": KasmVNC's client decodes WebP
     # rects with WebCodecs `ImageDecoder`. When the viewing browser has no WebCodecs
