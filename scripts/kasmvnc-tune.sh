@@ -53,14 +53,17 @@ encoding:
     max_quality: 9             # settled frames go sharp...
     consider_lossless_quality: 10  # ...then lossless -> legible screenshots for an agent
   video_encoding_mode:
+    # Video mode streams frames the client decodes via WebCodecs (GPU-backed). When the
+    # viewing browser has no hardware decode (headless / --disable-gpu / an agent's "debug
+    # mode"), the first video frame fails -> "noVNC frame error at index 0". A screenshot-
+    # driven agent doesn't need video, so keep it effectively OFF: 99% area for 60s is never
+    # reached in practice. (Do NOT use extreme values like 999999 / 100% -> the wrapper
+    # emits a bad arg and Xvnc fails to start with "Unrecognized option: -VideoTime".)
     enter_video_encoding_mode:
-      time_threshold: 2
-      area_threshold: 45%
+      time_threshold: 60
+      area_threshold: 99%
     exit_video_encoding_mode:
-      time_threshold: 1        # return to a sharp frame ~1 s after an action (was 3 s)
-    # NOTE: do NOT try to "disable" video mode with extreme values (e.g. time_threshold
-    # 999999 / area 100%) -> the wrapper emits a bad arg and Xvnc fails: "Unrecognized
-    # option: -VideoTime".
+      time_threshold: 1
 YAML
 
 systemctl --user restart insightful-kasmvnc.service

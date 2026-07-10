@@ -132,3 +132,24 @@ KASM_USER=collab KASM_PASS=... node scripts/novnc-repro.js /tmp/novnc.log https:
 
 After trust, `http`/`ws` **and** `https`/`wss` both connect clean. For remote/tailnet access,
 prefer real Let's Encrypt certs via `make vm-vmnet-serve` (no manual trust needed).
+
+### "frame error at index 0" (esp. when an agent is in debug mode)
+
+A *different* failure from the cert one above. KasmVNC flips into **video-encoding mode**
+after sustained on-screen motion and streams frames the client decodes via **WebCodecs**
+(GPU-backed). When the viewing browser has **no hardware decode** — headless, `--disable-gpu`,
+or an agent's "debug mode" — the first video frame fails: **"frame error at index 0."**
+`scripts/kasmvnc-tune.sh` disables video mode (99% area / 60 s = never reached), so the server
+only sends WebP/JPEG image rects, which decode in **software**. Verified: with
+`--disable-gpu --disable-accelerated-video-decode` + 90 s of heavy scrolling, no frame errors.
+
+**Manual browser-side mitigations** (if you can't apply the server fix):
+
+- **Enable** hardware acceleration so the video decode path works: `chrome://settings/system`
+  → "Use graphics acceleration when available" ON → Relaunch; verify `chrome://gpu` shows
+  *Video Decode: Hardware accelerated* and WebGL not blocklisted. (Counter-intuitively,
+  *disabling* accel makes video-mode frames fail, since WebCodecs then has no decoder.)
+- If the browser is headless/CDP where GPU can't be enabled, launch it **without**
+  `--disable-gpu`, or add `--use-gl=angle --use-angle=swiftshader` for a software GL decoder.
+- Don't keep **DevTools** open on the noVNC tab — throttling/paused JS desyncs the frame decoder.
+- The real fix is the server one above; the browser tweaks only help when video mode is still on.
