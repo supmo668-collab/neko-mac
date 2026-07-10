@@ -97,10 +97,13 @@ Prerequisites: enable **HTTPS Certificates** at <https://login.tailscale.com/adm
 the collaborator (admin → Machines → Share) so they can open the URL. Browsing still egresses
 the Mac's US residential IP, so the geo requirement holds.
 
-> NOTE: KasmVNC was set up on the *running* vmnet VM (runtime), not yet baked into
-> `vm/lima-insightful-vmnet.yaml` provisioning — a fresh `make vm-vmnet-create` would come
-> up with the base noVNC until the KasmVNC steps are added to the config's provision block.
-> The tuned config + cert can be re-applied to a running VM with `scripts/kasmvnc-tune.sh`.
+> KasmVNC is set up **from the start**: `make vm-vmnet-create` runs `scripts/kasmvnc-setup.sh`
+> (install + SAN cert + systemd service + xstartup) then `scripts/kasmvnc-tune.sh` (the tuned
+> encoding config) automatically. Re-apply / re-tune anytime with **`make vm-vmnet-kasmvnc`**
+> (idempotent: install-if-missing, cert-if-missing so the Mac trust is never invalidated). The
+> only manual step is the secret web login: `limactl shell insightful-vm-vmnet -- kasmvncpasswd
+> -u collab -w` (password from Infisical). The base desktop (Openbox + Chrome + Workpuls) still
+> comes from `vm/lima-insightful-vmnet.yaml`; only the KasmVNC streaming layer is scripted here.
 
 ## "noVNC encountered an error" — cause & fix
 

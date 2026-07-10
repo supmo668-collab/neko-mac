@@ -14,11 +14,13 @@ VNC="$HOME/.vnc"
 mkdir -p "$VNC"
 
 # SAN cert (CN + SAN must include the host the browser hits: 127.0.0.1 via the Lima forward).
-# Untrusted self-signed with NO matching SAN is what made wss fail -> "noVNC encountered an error".
-openssl req -x509 -newkey rsa:2048 -nodes \
-  -keyout "$VNC/kasm.key" -out "$VNC/kasm.crt" -days 3650 \
-  -subj "/CN=127.0.0.1" \
-  -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" 2>/dev/null
+# ONLY generate if missing -- regenerating would invalidate the Mac's login-keychain trust of it,
+# reintroducing the wss "noVNC encountered an error". (kasmvnc-setup.sh owns first-time creation.)
+if [ ! -f "$VNC/kasm.crt" ]; then
+  openssl req -x509 -newkey rsa:2048 -nodes \
+    -keyout "$VNC/kasm.key" -out "$VNC/kasm.crt" -days 3650 \
+    -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" 2>/dev/null
+fi
 echo "cert SAN: $(openssl x509 -in "$VNC/kasm.crt" -noout -ext subjectAltName 2>/dev/null | tail -1 | tr -s ' ')"
 
 cat > "$VNC/kasmvnc.yaml" <<YAML

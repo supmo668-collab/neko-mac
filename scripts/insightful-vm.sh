@@ -48,6 +48,7 @@ Commands:
   stop             Stop the VM
   shell            Open a shell inside the VM
   services         Enable linger and start the VNC + noVNC desktop services
+  kasmvnc          (vmnet) Install + configure the KasmVNC streaming layer (idempotent)
   tailscale        Run 'tailscale up' inside the VM (interactive auth)
   install          Run the Workpuls install/launch helper inside the VM
   url              Print local and Tailscale desktop URLs
@@ -71,6 +72,7 @@ cmd="${1:-help}"
 case "$cmd" in
   create)
     limactl start --name "$VM_NAME" "$CONFIG"
+    "$0" kasmvnc     # install + configure the KasmVNC streaming layer (vmnet only; no-op for slirp)
     "$0" services
     "$0" url
     ;;
@@ -89,6 +91,19 @@ case "$cmd" in
     limactl shell "$VM_NAME" -- systemctl --user daemon-reload
     limactl shell "$VM_NAME" -- systemctl --user enable --now $VNC_SERVICES
     echo "Desktop services started ($VNC_SERVICES)."
+    ;;
+  kasmvnc)
+    # Install + configure the KasmVNC streaming layer so a fresh build is correct from the start.
+    # Idempotent (install-if-missing, cert-if-missing) so it is safe to re-run to re-apply config.
+    if [ "$INSIGHTFUL_VARIANT" = "vmnet" ]; then
+      echo "[kasmvnc] setting up KasmVNC layer in $VM_NAME"
+      limactl shell "$VM_NAME" -- bash < "$ROOT_DIR/scripts/kasmvnc-setup.sh"
+      limactl shell "$VM_NAME" -- bash < "$ROOT_DIR/scripts/kasmvnc-tune.sh"
+      echo "[kasmvnc] done. Set the web login (secret, from Infisical):"
+      echo "          limactl shell $VM_NAME -- kasmvncpasswd -u collab -w"
+    else
+      echo "[kasmvnc] no-op for variant '$INSIGHTFUL_VARIANT' (slirp uses TigerVNC + noVNC)"
+    fi
     ;;
   tailscale)
     limactl shell "$VM_NAME" -- sudo tailscale up

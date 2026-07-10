@@ -177,6 +177,10 @@ vm-vmnet-install: ## [vmnet] Launch the Workpuls installer inside the vmnet VM
 vm-vmnet-services: ## [vmnet] Start the vmnet VM desktop services (VNC + noVNC)
 	@$(VMNET) services
 
+.PHONY: vm-vmnet-kasmvnc
+vm-vmnet-kasmvnc: ## [vmnet] Install + (re)apply the correct KasmVNC streaming layer (idempotent)
+	@$(VMNET) kasmvnc
+
 .PHONY: vm-vmnet-ensure
 vm-vmnet-ensure: ## [vmnet] Start vmnet VM + services if not running (idempotent)
 	@$(VMNET) ensure
