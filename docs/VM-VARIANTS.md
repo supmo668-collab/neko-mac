@@ -135,13 +135,19 @@ prefer real Let's Encrypt certs via `make vm-vmnet-serve` (no manual trust neede
 
 ### "frame error at index 0" (esp. when an agent is in debug mode)
 
-A *different* failure from the cert one above. KasmVNC flips into **video-encoding mode**
-after sustained on-screen motion and streams frames the client decodes via **WebCodecs**
-(GPU-backed). When the viewing browser has **no hardware decode** — headless, `--disable-gpu`,
-or an agent's "debug mode" — the first video frame fails: **"frame error at index 0."**
-`scripts/kasmvnc-tune.sh` disables video mode (99% area / 60 s = never reached), so the server
-only sends WebP/JPEG image rects, which decode in **software**. Verified: with
-`--disable-gpu --disable-accelerated-video-decode` + 90 s of heavy scrolling, no frame errors.
+A *different* failure from the cert one above, and the real cause is **WebP + WebCodecs**.
+KasmVNC's client decodes **WebP** rects with the WebCodecs **`ImageDecoder`** API. When the
+viewing browser has **no WebCodecs** — headless, an agent's "debug mode", or
+`--disable-features=WebCodecs` — **every incremental WebP frame after a click fails to decode**:
+`KasmVNC encountered an error: Failed to decode frame at index 0`, and the stream freezes (a
+reload paints one full frame, then the next interaction re-wedges it).
+
+**The fix (`scripts/kasmvnc-tune.sh` applies it): `webp_encoding_time: 0`** — gives WebP 0 % of
+the encode budget, so rects are sent as **JPEG**, which the client decodes via the universal
+`createImageBitmap` path (no WebCodecs). Video-encoding mode is *also* disabled (99 % area /
+60 s; its frames need the WebCodecs `VideoDecoder`). Verified end-to-end: with
+`--disable-features=WebCodecs` the WebP config threw "Failed to decode frame at index 0"
+repeatedly; after `webp_encoding_time: 0`, **0 occurrences** across 90 s of clicking/scrolling.
 
 **Manual browser-side mitigations** (if you can't apply the server fix):
 

@@ -53,12 +53,17 @@ encoding:
     max_quality: 9             # settled frames go sharp...
     consider_lossless_quality: 10  # ...then lossless -> legible screenshots for an agent
   video_encoding_mode:
-    # Video mode streams frames the client decodes via WebCodecs (GPU-backed). When the
-    # viewing browser has no hardware decode (headless / --disable-gpu / an agent's "debug
-    # mode"), the first video frame fails -> "noVNC frame error at index 0". A screenshot-
-    # driven agent doesn't need video, so keep it effectively OFF: 99% area for 60s is never
-    # reached in practice. (Do NOT use extreme values like 999999 / 100% -> the wrapper
-    # emits a bad arg and Xvnc fails to start with "Unrecognized option: -VideoTime".)
+    # THE key fix for "Failed to decode frame at index 0": KasmVNC's client decodes WebP
+    # rects with WebCodecs `ImageDecoder`. When the viewing browser has no WebCodecs
+    # (headless / an agent's "debug mode" / --disable-features=WebCodecs), EVERY incremental
+    # WebP frame after a click fails to decode and the stream freezes. Setting
+    # webp_encoding_time: 0 gives WebP 0% of the encode budget => rects are sent as JPEG,
+    # which the client decodes via `createImageBitmap` (universal, no WebCodecs). Verified:
+    # reproduced the failure with --disable-features=WebCodecs, then 0 occurrences after.
+    webp_encoding_time: 0
+    # Also keep video-encoding mode effectively OFF (its frames need WebCodecs VideoDecoder):
+    # 99% area for 60s is never reached in practice. Do NOT use extreme values like
+    # 999999 / 100% -> Xvnc fails to start with "Unrecognized option: -VideoTime".
     enter_video_encoding_mode:
       time_threshold: 60
       area_threshold: 99%
