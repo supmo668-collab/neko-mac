@@ -137,8 +137,17 @@ case "$cmd" in
     limactl shell "$VM_NAME" -- systemctl --user enable --now $VNC_SERVICES >/dev/null 2>&1 || true
     # Self-heal: if the desktop web port is not actually listening in the guest
     # (e.g. the VNC process crashed), restart the service(s). Runs every 120s via launchd.
-    if ! limactl shell "$VM_NAME" -- bash -lc "ss -tln 2>/dev/null | grep -q ':6080 '"; then
-      echo "[ensure] desktop not listening -> restarting $VNC_SERVICES"
+    # Re-check a few times first: a single miss (e.g. mid-frame, or a transient) must NOT
+    # trigger a restart, or the self-heal flaps the desktop it is meant to protect. Only act
+    # on a CONFIRMED down, and clear any `failed` state so the restart actually takes.
+    down=1
+    for _ in 1 2 3; do
+      if limactl shell "$VM_NAME" -- bash -lc "ss -tln 2>/dev/null | grep -q ':6080'"; then down=0; break; fi
+      sleep 2
+    done
+    if [ "$down" = 1 ]; then
+      echo "[ensure] desktop not listening (confirmed 3x) -> restarting $VNC_SERVICES"
+      limactl shell "$VM_NAME" -- systemctl --user reset-failed $VNC_SERVICES >/dev/null 2>&1 || true
       limactl shell "$VM_NAME" -- systemctl --user restart $VNC_SERVICES >/dev/null 2>&1 || true
     fi
     echo "[ensure] VM running; desktop at ${SCHEME}://127.0.0.1:$HOST_PORT$URL_PATH"

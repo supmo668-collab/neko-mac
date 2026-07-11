@@ -56,8 +56,13 @@ After=default.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStartPre=-/usr/bin/kasmvncserver -kill :1
+# `kasmvncserver -kill :1` often can't reap a detached Xvnc ("You'll have to kill the
+# Xvnc process manually") and leaves /tmp/.X1-lock behind, so the next ExecStart dies with
+# "A VNC server is already running as :1" (exit 29). Force-clear the stale X lock + socket so
+# a restart is genuinely idempotent (this is the fix for the self-heal flapping the desktop).
+ExecStartPre=-/bin/sh -c 'pkill -f "Xvnc :1" 2>/dev/null; rm -f /tmp/.X1-lock /tmp/.X11-unix/X1'
 ExecStart=/usr/bin/kasmvncserver :1 -desktop Cowork -select-de manual -geometry 1280x720 -depth 24
-ExecStop=/usr/bin/kasmvncserver -kill :1
+ExecStop=-/usr/bin/kasmvncserver -kill :1
 [Install]
 WantedBy=default.target
 UNIT
