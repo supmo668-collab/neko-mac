@@ -47,22 +47,44 @@ else
   echo "cert: present (kept)"
 fi
 
-# 4) systemd user service (Type=oneshot+RemainAfterExit; Xvnc IS the :1 X server).
+# 4) Foreground supervisor wrapper + a SUPERVISED systemd user service.
+#    `kasmvncserver` forks Xvnc and exits, so a plain Type=simple unit thinks it died and a
+#    Type=oneshot unit can't use Restart= at all (the old design: if Xvnc crashed, NOTHING
+#    brought it back). This wrapper cleans stale state, launches the desktop, then BLOCKS on
+#    the Xvnc pid so systemd can supervise it as Type=simple with Restart=always — the moment
+#    Xvnc dies the wrapper exits non-zero and systemd relaunches the whole desktop.
+cat > "$VNC/kasmvnc-supervise.sh" <<'SUP'
+#!/bin/sh
+# Clean any stale lock so the (re)start is idempotent (kasmvncserver -kill often can't reap
+# a detached Xvnc and leaves /tmp/.X1-lock -> next start dies "already running as :1" exit 29).
+/usr/bin/kasmvncserver -kill :1 2>/dev/null
+pkill -f "Xvnc :1" 2>/dev/null
+rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null
+# Launch the desktop (forks Xvnc, returns).
+/usr/bin/kasmvncserver :1 -desktop Cowork -select-de manual -geometry 1280x720 -depth 24
+# Find Xvnc and block on it so systemd treats this as the long-running main process.
+pid=""; i=0
+while [ $i -lt 10 ]; do pid=$(pgrep -x Xvnc | head -1); [ -n "$pid" ] && break; i=$((i+1)); sleep 1; done
+[ -n "$pid" ] || { echo "Xvnc failed to start"; exit 1; }
+echo "supervising Xvnc pid=$pid"
+while kill -0 "$pid" 2>/dev/null; do sleep 5; done
+echo "Xvnc pid=$pid exited -> systemd will restart"
+exit 1
+SUP
+chmod +x "$VNC/kasmvnc-supervise.sh"
+
 cat > "$SVC/insightful-kasmvnc.service" <<'UNIT'
 [Unit]
-Description=KasmVNC server for Insightful desktop
+Description=KasmVNC server for Insightful desktop (supervised)
 After=default.target
+# Never give up restarting (true always-on): disable the start-rate limiter.
+StartLimitIntervalSec=0
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStartPre=-/usr/bin/kasmvncserver -kill :1
-# `kasmvncserver -kill :1` often can't reap a detached Xvnc ("You'll have to kill the
-# Xvnc process manually") and leaves /tmp/.X1-lock behind, so the next ExecStart dies with
-# "A VNC server is already running as :1" (exit 29). Force-clear the stale X lock + socket so
-# a restart is genuinely idempotent (this is the fix for the self-heal flapping the desktop).
-ExecStartPre=-/bin/sh -c 'pkill -f "Xvnc :1" 2>/dev/null; rm -f /tmp/.X1-lock /tmp/.X11-unix/X1'
-ExecStart=/usr/bin/kasmvncserver :1 -desktop Cowork -select-de manual -geometry 1280x720 -depth 24
+Type=simple
+ExecStart=%h/.vnc/kasmvnc-supervise.sh
 ExecStop=-/usr/bin/kasmvncserver -kill :1
+Restart=always
+RestartSec=5
 [Install]
 WantedBy=default.target
 UNIT

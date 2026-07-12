@@ -71,9 +71,18 @@ secure context, so the browser clipboard integration works, with **no cert warni
 - Web client: `http://127.0.0.1:6080/` (login user **`collab`**; password set via
   `kasmvncpasswd` — reset with `limactl shell insightful-vm-vmnet -- kasmvncpasswd -u collab -w`).
 - Service: systemd user unit `insightful-kasmvnc.service` (replaces `insightful-vnc` +
-  `insightful-novnc` on this VM). The script's `services`/`ensure`/`autostart` target it
-  automatically for the vmnet variant, and `ensure` now self-heals (restarts the desktop
-  if its port stops listening).
+  `insightful-novnc` on this VM). It is a **supervised daemon**: `Type=simple` +
+  `Restart=always` via a foreground wrapper (`~/.vnc/kasmvnc-supervise.sh`) that blocks on the
+  Xvnc pid, so **systemd relaunches the desktop within ~10 s of any crash** (verified by
+  `kill -9 Xvnc` → auto-recovered). `StartLimitIntervalSec=0` means it never gives up.
+- **Two-layer "always up" (supervision + watchdog):** the systemd `Restart=always` above keeps
+  the KasmVNC daemon alive *inside* the guest; the Mac-side launchd agent
+  (`com.insightful.vm.vmnet`, `make vm-vmnet-autostart`) runs `ensure` every 120 s as a
+  **watchdog** that (a) starts the VM if stopped, (b) **hard-restarts the whole VM if the guest
+  is wedged** — Lima can report "Running" while SSH/exec hangs forever; every guest call in
+  `ensure` is `timeout`-guarded so a wedged guest triggers `limactl stop --force && start`
+  instead of hanging the watchdog (that exact hang once kept the desktop down for days), and
+  (c) restarts the service if `:6080` stays unlistening across 3 checks.
 - Config: `~/.vnc/kasmvnc.yaml` (`network.protocol: http` + `ssl.require_ssl: false`,
   `websocket_port: 6080`; a cert must still be present so `pem_certificate`/`pem_key` point
   at `~/.vnc/kasm.{crt,key}` even though TLS is off), started with `-select-de manual`.

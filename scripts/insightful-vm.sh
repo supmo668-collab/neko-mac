@@ -125,30 +125,52 @@ case "$cmd" in
     limactl list | sed -n '1p'; limactl list | grep -E "^$VM_NAME" || true
     ;;
   ensure)
-    # Idempotent "keep it alive" step, safe to call repeatedly (used by launchd).
+    # Idempotent watchdog, safe to call repeatedly (used by launchd every 120s).
+    # EVERY guest call is timeout-guarded: Lima can report "Running" while the guest is
+    # WEDGED (SSH/exec hangs forever). Un-guarded `limactl shell` then hangs the watchdog
+    # itself, so it never recovers — that failure mode kept the desktop DOWN for days.
+    # A timed-out exec probe now triggers a VM hard-restart instead.
+    run_to() {  # run_to SECONDS cmd... — portable timeout (macOS ships no `timeout`)
+      local t="$1"; shift
+      "$@" & local p=$!
+      ( sleep "$t"; kill -TERM "$p" 2>/dev/null; sleep 2; kill -KILL "$p" 2>/dev/null ) >/dev/null 2>&1 & local w=$!
+      local rc=0
+      wait "$p" 2>/dev/null || rc=$?
+      kill -TERM "$w" 2>/dev/null || true; wait "$w" 2>/dev/null || true
+      return $rc
+    }
+    vm_hard_restart() {
+      echo "[ensure] hard-restarting VM $VM_NAME"
+      run_to 90 limactl stop --force "$VM_NAME" || true
+      run_to 240 limactl start "$VM_NAME" || true
+    }
+    # 1) VM must exist + be Running.
     status="$(limactl list --format '{{.Status}}' "$VM_NAME" 2>/dev/null || true)"
     if [ "$status" != "Running" ]; then
       echo "[ensure] VM status='$status' -> starting"
-      limactl start "$VM_NAME"
+      run_to 240 limactl start "$VM_NAME" || true
     fi
-    # Bring the desktop services up (no-op if already active).
-    user="$(limactl shell "$VM_NAME" -- whoami)"
-    limactl shell "$VM_NAME" -- sudo loginctl enable-linger "$user" >/dev/null 2>&1 || true
-    limactl shell "$VM_NAME" -- systemctl --user enable --now $VNC_SERVICES >/dev/null 2>&1 || true
-    # Self-heal: if the desktop web port is not actually listening in the guest
-    # (e.g. the VNC process crashed), restart the service(s). Runs every 120s via launchd.
-    # Re-check a few times first: a single miss (e.g. mid-frame, or a transient) must NOT
-    # trigger a restart, or the self-heal flaps the desktop it is meant to protect. Only act
-    # on a CONFIRMED down, and clear any `failed` state so the restart actually takes.
+    # 2) Guest liveness probe. If exec times out, the guest is wedged -> hard restart the VM.
+    if ! run_to 25 limactl shell "$VM_NAME" -- true 2>/dev/null; then
+      echo "[ensure] guest unresponsive (exec probe timed out) -> hard restart"
+      vm_hard_restart
+    fi
+    # 3) Bring the desktop service up (idempotent; the unit is Restart=always so it self-heals
+    #    inside the guest — this is just a belt-and-suspenders enable after a fresh boot).
+    user="$(run_to 25 limactl shell "$VM_NAME" -- whoami 2>/dev/null || true)"
+    [ -n "$user" ] && run_to 25 limactl shell "$VM_NAME" -- sudo loginctl enable-linger "$user" >/dev/null 2>&1 || true
+    run_to 30 limactl shell "$VM_NAME" -- systemctl --user enable --now $VNC_SERVICES >/dev/null 2>&1 || true
+    # 4) Port self-heal: confirm :6080 down 3x before acting (a single miss must NOT flap it),
+    #    then reset-failed + restart so it actually takes.
     down=1
     for _ in 1 2 3; do
-      if limactl shell "$VM_NAME" -- bash -lc "ss -tln 2>/dev/null | grep -q ':6080'"; then down=0; break; fi
+      if run_to 20 limactl shell "$VM_NAME" -- bash -lc "ss -tln 2>/dev/null | grep -q ':6080'"; then down=0; break; fi
       sleep 2
     done
     if [ "$down" = 1 ]; then
       echo "[ensure] desktop not listening (confirmed 3x) -> restarting $VNC_SERVICES"
-      limactl shell "$VM_NAME" -- systemctl --user reset-failed $VNC_SERVICES >/dev/null 2>&1 || true
-      limactl shell "$VM_NAME" -- systemctl --user restart $VNC_SERVICES >/dev/null 2>&1 || true
+      run_to 20 limactl shell "$VM_NAME" -- systemctl --user reset-failed $VNC_SERVICES >/dev/null 2>&1 || true
+      run_to 30 limactl shell "$VM_NAME" -- systemctl --user restart $VNC_SERVICES >/dev/null 2>&1 || true
     fi
     echo "[ensure] VM running; desktop at ${SCHEME}://127.0.0.1:$HOST_PORT$URL_PATH"
     ;;
