@@ -37,6 +37,19 @@ exec openbox-session
 X
 chmod +x "$VNC/xstartup"
 
+# 2b) Openbox workspace name = "Cowork", never the default "Desktop 1". Openbox sets
+#     _NET_DESKTOP_NAMES authoritatively from rc.xml <names> at each session start, and there
+#     is no SESSION_MANAGER here (xstartup unsets it) so nothing overrides it. (This is SEPARATE
+#     from the KasmVNC `-desktop Cowork` connection title.) Idempotent.
+OBX="$HOME/.config/openbox"; mkdir -p "$OBX"
+[ -f "$OBX/rc.xml" ] || cp /etc/xdg/openbox/rc.xml "$OBX/rc.xml" 2>/dev/null || true
+if [ -f "$OBX/rc.xml" ]; then
+  # single workspace, named Cowork (scoped to the <desktops> block so no other <number>/<names> is touched)
+  perl -0777 -pi -e 's{(<desktops>.*?<number>)\d+(</number>)}{${1}1${2}}s' "$OBX/rc.xml"
+  perl -0777 -pi -e 's{(<desktops>.*?)<names>.*?</names>}{${1}<names>\n    <name>Cowork</name>\n  </names>}s' "$OBX/rc.xml"
+  echo "openbox workspace name: Cowork"
+fi
+
 # 3) SAN cert — ONLY if missing. Regenerating it would invalidate the Mac's login-keychain
 #    trust (see docs/VM-VARIANTS.md), so never overwrite an existing one here.
 if [ ! -f "$VNC/kasm.crt" ]; then
