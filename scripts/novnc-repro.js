@@ -29,7 +29,19 @@ const log = (tag, msg) => {
 
 (async () => {
   fs.writeFileSync(OUT, '');
-  const browser = await chromium.launch({ headless: true, channel: 'chrome' });
+  // Anti-throttling flags are ESSENTIAL for a stable KasmVNC transport when Claude/an agent
+  // drives in headless/debug mode: Chrome treats a headless or backgrounded tab as hidden and
+  // throttles its timers + backgrounds the renderer, which lapses the noVNC websocket heartbeat
+  // and drops the connection every few minutes. These keep the tab "foreground/awake" so the
+  // socket stays alive. Same flags belong on ANY browser/agent driving this desktop.
+  const STABILITY_ARGS = (process.env.CHROME_ARGS ? process.env.CHROME_ARGS.split(' ') : []).concat([
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+    '--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling',
+    '--disable-ipc-flooding-protection',
+  ]);
+  const browser = await chromium.launch({ headless: true, channel: 'chrome', args: STABILITY_ARGS });
   const ctx = await browser.newContext({
     httpCredentials: { username: process.env.KASM_USER || 'collab', password: process.env.KASM_PASS || '' },
     ignoreHTTPSErrors: false, // we WANT to surface cert failures, not mask them

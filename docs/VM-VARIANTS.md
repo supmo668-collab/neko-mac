@@ -190,3 +190,34 @@ save bandwidth with **frame rate, not quality**. Keep `max_quality: 9` so static
 Verified: sharp/legible with WebCodecs **off**, and **0 decode-errors / 0 blanking at 2 Mbps**.
 Bandwidth via fps keeps text readable (unlike lowering quality, which blurs it). On a fast local
 link, raise `max_frame_rate` for smoother motion — quality is already maxed.
+
+## Transport stability — the WebSocket link dropping (NOT decode errors)
+
+Distinct from the decode issues above: the KasmVNC **connection** itself erroring/dropping every
+few minutes (server journal shows no disconnect → it's the transport path, not KasmVNC). Three
+fragile links, all now removed:
+
+1. **Lima's `127.0.0.1:6080` port-forward is an SSH tunnel** (`portForwards` in the Lima yaml).
+   SSH tunnels stall/drop under a sustained ~12fps JPEG websocket. **Fix:** connect to the guest's
+   **direct vmnet L2 IP** instead — `http://192.168.105.2:6080/` (`make vm-vmnet-url` prints it as
+   "Direct (STABLE)"). No SSH tunnel in the path.
+2. **The tailnet relay was a raw `socat … TCP:127.0.0.1:6080`** (feeding the SSH forward) with no
+   keepalive. **Fix:** `scripts/vnc-tailnet-relay.sh` (managed by launchd
+   `com.neko.novnc-tailnet-proxy`) now forwards the Mac's Tailscale IP **directly to the guest
+   vmnet IP** with `keepalive,nodelay` (macOS socat lacks `keepidle/keepintvl/keepcnt`). It
+   resolves the guest IP dynamically so it survives rebuilds. For an even stronger remote path,
+   enable tailnet **HTTPS certs** and use `make vm-vmnet-serve` (websocket-aware proxy + real cert).
+3. **Chrome throttles a headless/backgrounded tab** — it treats the driving tab as hidden, throttles
+   its timers and backgrounds the renderer, so the noVNC heartbeat lapses and the socket drops. This
+   is the big one for **Claude / Chrome debug mode**. Launch the driving browser with:
+
+   ```
+   --disable-background-timer-throttling
+   --disable-backgrounding-occluded-windows
+   --disable-renderer-backgrounding
+   --disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling
+   --disable-ipc-flooding-protection
+   ```
+
+   Baked into `scripts/novnc-repro.js`. Also: **don't leave DevTools open** on the noVNC tab
+   (pausing/throttling JS desyncs the decoder), and keep the tab **foreground/visible**, not minimized.

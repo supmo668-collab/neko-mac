@@ -113,7 +113,11 @@ case "$cmd" in
     ;;
   url)
     echo "Variant       : $INSIGHTFUL_VARIANT ($VM_NAME)"
-    echo "Local desktop : ${SCHEME}://127.0.0.1:$HOST_PORT$URL_PATH"
+    echo "Local desktop : ${SCHEME}://127.0.0.1:$HOST_PORT$URL_PATH   (via Lima SSH forward — can stall)"
+    if [ "$INSIGHTFUL_VARIANT" = "vmnet" ]; then
+      gip="$(limactl shell "$VM_NAME" -- bash -lc 'ip -4 addr show lima0 2>/dev/null | grep -oE "inet [0-9.]+" | awk "{print \$2}"' 2>/dev/null | head -1)"
+      [ -n "$gip" ] && echo "Direct (STABLE): ${SCHEME}://$gip:6080$URL_PATH   <- prefer this locally: direct vmnet L2, no SSH tunnel"
+    fi
     ip="$(vm_ip)"
     if [ -n "$ip" ]; then
       echo "Tailscale     : ${SCHEME}://$ip:6080$URL_PATH"
